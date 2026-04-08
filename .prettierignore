@@ -1,0 +1,12 @@
+node_modules
+bundle
+packages/*/dist
+packages/*/node_modules
+packages/*/*.tsbuildinfo
+.bridge-server
+.bridge-state
+packages/*/.bridge-server
+packages/*/.bridge-state
+*.log
+*.tgz
+bun.lock

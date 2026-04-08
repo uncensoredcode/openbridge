@@ -1,0 +1,42 @@
+{
+  "name": "@openbridge/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "bridge-server": "./dist/cli/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/cli/main.ts",
+    "start": "node dist/cli/main.js start",
+    "clear-session-vault": "node dist/cli/main.js clear-session-vault",
+    "live-canary": "node dist/cli/main.js live-canary",
+    "build": "tsc -p tsconfig.json",
+    "smoke": "vitest run",
+    "test": "tsx --test tests/**/*.test.ts && vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@openbridge/runtime": "file:../runtime",
+    "commander": "*",
+    "fastify": "*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "tsx": "*",
+    "typescript": "*",
+    "vitest": "*"
+  }
+}

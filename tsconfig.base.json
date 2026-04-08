@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rewriteRelativeImportExtensions": true,
+    "paths": {
+      "@uncensoredcode/openbridge": ["./packages/server/src/index.ts"],
+      "@uncensoredcode/openbridge/server": ["./packages/server/src/index.ts"],
+      "@uncensoredcode/openbridge/runtime": ["./packages/runtime/src/index.ts"],
+      "@uncensoredcode/openbridge/cli": ["./packages/cli/src/index.ts"]
+    },
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
