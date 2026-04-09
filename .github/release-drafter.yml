@@ -1,0 +1,67 @@
+name-template: "v$RESOLVED_VERSION 🌈"
+tag-template: "v$RESOLVED_VERSION"
+
+categories:
+  - title: "🔥 MAJOR"
+    labels:
+      - major
+  - title: "🚀 Features"
+    labels:
+      - enhancement
+  - title: "🐛 Bug Fixes"
+    labels:
+      - bug
+  - title: "🧰 Maintenance"
+    labels:
+      - chore
+  - title: "📚 Documentation"
+    labels:
+      - documentation
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&'
+
+exclude-labels:
+  - skip-changelog
+
+autolabeler:
+  - label: documentation
+    files:
+      - "*.md"
+    branch:
+      - '/docs{0,1}\/.+/'
+  - label: chore
+    branch:
+      - '/chore\/.+/'
+  - label: bug
+    branch:
+      - '/fix\/.+/'
+      - '/bug\/.+/'
+    title:
+      - "/fix/i"
+  - label: enhancement
+    branch:
+      - '/enh\/.+/'
+      - '/enhancement\/.+/'
+      - '/feat\/.+/'
+      - '/feature\/.+/'
+
+version-resolver:
+  major:
+    labels:
+      - major
+  minor:
+    labels:
+      - minor
+      - bug
+      - documentation
+  patch:
+    labels:
+      - patch
+      - enhancement
+  default: patch
+
+template: |
+  ## Changes
+
+  $CHANGES
