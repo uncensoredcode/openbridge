@@ -76,7 +76,7 @@ describe("standalone bridge smoke", () => {
       current: Server | null;
     } = { current: null };
     const exitCode = await runBridgeServerCli({
-      argv: ["start", "--host", "127.0.0.1", "--port", "0"],
+      argv: ["start", "--foreground", "--host", "127.0.0.1", "--port", "0"],
       env: {
         HOME: homeDir,
         BRIDGE_RUNTIME_ROOT: runtimeRoot,

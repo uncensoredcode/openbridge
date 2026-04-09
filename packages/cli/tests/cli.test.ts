@@ -66,6 +66,15 @@ test("argument parser forwards server subcommands to the server CLI", () => {
     argv: ["start", "--host", "0.0.0.0", "--port", "4318"]
   });
 });
+test("argument parser forwards grouped admin commands to the server CLI", () => {
+  const parsed = parseBridgeCliArgs({
+    argv: ["providers", "list", "--base-url", "http://127.0.0.1:4318"]
+  });
+  assert.deepEqual(parsed, {
+    kind: "server",
+    argv: ["providers", "list", "--base-url", "http://127.0.0.1:4318"]
+  });
+});
 test("argument parser supports the health command", () => {
   const parsed = parseBridgeCliArgs({
     argv: ["health", "--base-url", "http://127.0.0.1:4319"]
