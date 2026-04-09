@@ -834,6 +834,8 @@
 
     "@openbridge/cli/@openbridge/runtime": ["@openbridge/runtime@file:packages/runtime", { "devDependencies": { "@types/node": "*", "tsx": "*", "typescript": "*" } }],
 
+    "@openbridge/cli/@openbridge/server": ["@openbridge/server@file:packages/server", { "dependencies": { "@openbridge/runtime": "file:../runtime", "commander": "*", "fastify": "*", "zod": "*" }, "devDependencies": { "@types/node": "*", "tsx": "*", "typescript": "*", "vitest": "*" }, "bin": { "bridge-server": "./dist/cli/main.js" } }],
+
     "@openbridge/server/@openbridge/runtime": ["@openbridge/runtime@file:packages/runtime", { "devDependencies": { "@types/node": "*", "tsx": "*", "typescript": "*" } }],
 
     "@typescript-eslint/eslint-plugin/ignore": ["ignore@7.0.5", "", {}, "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg=="],
@@ -861,6 +863,8 @@
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
     "@fastify/ajv-compiler/ajv/json-schema-traverse": ["json-schema-traverse@1.0.0", "", {}, "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="],
+
+    "@openbridge/cli/@openbridge/server/@openbridge/runtime": ["@openbridge/runtime@file:packages/runtime", {}],
 
     "@typescript-eslint/typescript-estree/minimatch/brace-expansion": ["brace-expansion@2.0.3", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-MCV/fYJEbqx68aE58kv2cA/kiky1G8vux3OR6/jbS+jIMe/6fJWa0DTzJU7dqijOWYwHi1t29FlfYI9uytqlpA=="],
 
