@@ -1,4 +1,4 @@
-import type { CompiledProviderMessage } from "@openbridge/runtime";
+import type { CompiledProviderMessage } from "@uncensoredcode/openbridge/runtime";
 import { z } from "zod";
 
 import type { ProviderRecord } from "../stores/provider-store.ts";

@@ -2,8 +2,8 @@ import type {
   ProviderTransport,
   ProviderTransportRequest,
   ProviderTransportResponse
-} from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+} from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import type { FileBridgeStateStore } from "../state/file-bridge-state-store.ts";
 import type { ProviderRecord } from "../stores/provider-store.ts";
