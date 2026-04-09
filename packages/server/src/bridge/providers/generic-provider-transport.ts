@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
 import { createHmac, randomUUID } from "node:crypto";
 
-import type { ProviderTransportRequest } from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+import type { ProviderTransportRequest } from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import { redactSensitiveValuesModule } from "../../security/redact-sensitive-values.ts";
 import { outputModule } from "../../shared/output.ts";

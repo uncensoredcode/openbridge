@@ -15,7 +15,10 @@ test("CLI exports stay generic and free of product-specific naming", () => {
 });
 test("CLI source stays a thin client over the standalone bridge API", async () => {
   const source = await readFile(path.join(packageRoot, "src", "index.ts"), "utf8");
-  assert.match(source, /from "@openbridge\/server"/);
-  assert.doesNotMatch(source, /@openbridge\/runtime/);
-  assert.doesNotMatch(source.replaceAll("@openbridge/server", ""), /telegram|openclaw/i);
+  assert.match(source, /from "@uncensoredcode\/openbridge\/server"/);
+  assert.doesNotMatch(source, /@uncensoredcode\/openbridge\/runtime/);
+  assert.doesNotMatch(
+    source.replaceAll("@uncensoredcode/openbridge/server", ""),
+    /telegram|openclaw/i
+  );
 });

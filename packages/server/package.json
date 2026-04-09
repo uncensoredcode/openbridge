@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@openbridge/runtime": "file:../runtime",
+    "@uncensoredcode/openbridge": "file:../..",
     "commander": "*",
     "fastify": "*",
     "zod": "*"

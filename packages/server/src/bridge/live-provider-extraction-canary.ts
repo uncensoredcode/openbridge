@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
-import type { ProviderFailureCode } from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+import type { ProviderFailureCode } from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import type { BridgeServerConfig } from "../config/index.ts";
 import { webProviderTransportModule } from "./providers/web-provider-transport.ts";
@@ -24,13 +24,15 @@ type LiveProviderCanaryCompletion = {
     fragmentCount: number;
   };
   upstreamBinding: Pick<
-    NonNullable<import("@openbridge/runtime").ProviderTransportRequest["upstreamBinding"]>,
+    NonNullable<
+      import("@uncensoredcode/openbridge/runtime").ProviderTransportRequest["upstreamBinding"]
+    >,
     "conversationId" | "parentId"
   > | null;
 };
 type LiveProviderCanaryCompletionCollector = (
   stateStore: InstanceType<typeof FileBridgeStateStore>,
-  request: import("@openbridge/runtime").ProviderTransportRequest
+  request: import("@uncensoredcode/openbridge/runtime").ProviderTransportRequest
 ) => Promise<LiveProviderCanaryCompletion>;
 type LiveProviderExtractionCanaryInput = {
   config: BridgeServerConfig;

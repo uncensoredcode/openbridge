@@ -1,4 +1,4 @@
-import { bridgeRuntime } from "@openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 const { sanitizeVisibleModelOutput } = bridgeRuntime;
 function sanitizeBridgeApiOutput(content: string) {

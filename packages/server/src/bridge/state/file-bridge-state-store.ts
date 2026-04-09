@@ -6,7 +6,7 @@ import type {
   BridgeSessionTurn,
   SessionBindingStore,
   UpstreamConversationBinding
-} from "@openbridge/runtime";
+} from "@uncensoredcode/openbridge/runtime";
 
 type BridgeProviderSession = {
   providerId: string;

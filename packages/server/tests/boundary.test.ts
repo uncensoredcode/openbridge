@@ -30,7 +30,7 @@ test("standalone API depends on bridge runtime, not Telegram adapter logic", asy
     path.join(packageRoot, "src", "cli", "run-bridge-server-cli.ts"),
     "utf8"
   );
-  assert.match(serviceSource, /from "@openbridge\/runtime"/);
+  assert.match(serviceSource, /from "@uncensoredcode\/openbridge\/runtime"/);
   assert.doesNotMatch(serviceSource, /telegram-runtime-adapter/);
   assert.doesNotMatch(serverSource, /telegram|openclaw|legacy|bridge-core/i);
   assert.match(commandSource, /from "\.\.\/http\/index\.ts"/);
@@ -123,7 +123,7 @@ test("chat completions API stays inside the standalone bridge-server boundary", 
   assert.match(routeSource, /\/v1\/chat\/completions/);
   assert.match(routeSource, /chat-completion-service/);
   assert.match(chatCompletionServiceSource, /resolveBridgeModel/);
-  assert.match(serviceSource, /from "@openbridge\/runtime"/);
+  assert.match(serviceSource, /from "@uncensoredcode\/openbridge\/runtime"/);
   assert.match(commandSource, /from "\.\.\/client\/index\.ts"/);
   assert.doesNotMatch(routeSource, /telegram|openclaw|legacy|bridge-core/i);
   assert.doesNotMatch(chatCompletionServiceSource, /telegram|openclaw|legacy|bridge-core/i);

@@ -10,8 +10,8 @@ import type {
   ProviderTransport,
   ProviderTransportRequest,
   ProviderTransportResponse
-} from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+} from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import { bridgeModule } from "../src/bridge/index.ts";
 import type { ProviderStreamFragment } from "../src/bridge/providers/provider-streams.ts";
