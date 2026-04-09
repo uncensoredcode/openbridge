@@ -4,8 +4,8 @@ import type {
   AssistantResponse,
   BridgeSessionTurn,
   CompiledProviderMessage
-} from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+} from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 import { z } from "zod";
 
 import type {

@@ -1,4 +1,4 @@
-import type { BridgeApiToolProfile } from "@openbridge/server";
+import type { BridgeApiToolProfile } from "@uncensoredcode/openbridge/server";
 
 type BridgeCliCommand =
   | {

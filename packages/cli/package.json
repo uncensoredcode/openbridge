@@ -25,8 +25,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@openbridge/runtime": "file:../runtime",
-    "@openbridge/server": "file:../server"
+    "@uncensoredcode/openbridge": "file:../.."
   },
   "devDependencies": {
     "@types/node": "*",

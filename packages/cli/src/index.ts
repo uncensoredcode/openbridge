@@ -1,5 +1,8 @@
-import type { BridgeApiClientFetch, RunBridgeServerCliInput } from "@openbridge/server";
-import { bridgeServer } from "@openbridge/server";
+import type {
+  BridgeApiClientFetch,
+  RunBridgeServerCliInput
+} from "@uncensoredcode/openbridge/server";
+import { bridgeServer } from "@uncensoredcode/openbridge/server";
 
 import { argsModule } from "./args.ts";
 

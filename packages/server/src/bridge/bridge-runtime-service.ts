@@ -10,8 +10,8 @@ import type {
   SessionBindingStore,
   UpstreamConversationBinding,
   ZcPacket
-} from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
+} from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import type { BridgeServerConfig } from "../config/index.ts";
 import type {

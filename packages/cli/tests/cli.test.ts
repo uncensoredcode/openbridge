@@ -10,9 +10,9 @@ import type {
   ProviderTransport,
   ProviderTransportRequest,
   ProviderTransportResponse
-} from "@openbridge/runtime";
-import { bridgeRuntime } from "@openbridge/runtime";
-import { bridgeServer } from "@openbridge/server";
+} from "@uncensoredcode/openbridge/runtime";
+import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
+import { bridgeServer } from "@uncensoredcode/openbridge/server";
 
 import { bridgeCli } from "../src/index.ts";
 
