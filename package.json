@@ -12,6 +12,9 @@
     "packages/cli/dist",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "openbridge": "./bin/openbridge.js"
   },
