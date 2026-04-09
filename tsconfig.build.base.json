@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@uncensoredcode/openbridge": ["./packages/server/dist/index.d.ts"],
+      "@uncensoredcode/openbridge/server": ["./packages/server/dist/index.d.ts"],
+      "@uncensoredcode/openbridge/runtime": ["./packages/runtime/dist/index.d.ts"],
+      "@uncensoredcode/openbridge/cli": ["./packages/cli/dist/index.d.ts"]
+    }
+  }
+}

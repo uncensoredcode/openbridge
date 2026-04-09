@@ -15,8 +15,8 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "tsc -w -p tsconfig.json --preserveWatchOutput",
-    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -w -p tsconfig.build.json --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
     "test": "tsx --test tests/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

@@ -22,7 +22,7 @@
     "start": "node dist/cli/main.js start",
     "clear-session-vault": "node dist/cli/main.js clear-session-vault",
     "live-canary": "node dist/cli/main.js live-canary",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "smoke": "vitest run",
     "test": "tsx --test tests/**/*.test.ts && vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"

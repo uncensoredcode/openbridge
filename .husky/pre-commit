@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+run_bun() {
+  if command -v bun >/dev/null 2>&1; then
+    bun "$@"
+    return
+  fi
+
+  if command -v npx >/dev/null 2>&1; then
+    npx bun "$@"
+    return
+  fi
+
+  echo "bun or npx is required to run the pre-commit hook."
+  exit 1
+}
+
+run_bun run format:check &&
+run_bun run lint &&
+run_bun run typecheck

@@ -43,7 +43,7 @@
   ],
   "scripts": {
     "build": "cd packages/runtime && bun run build && cd ../server && bun run build && cd ../cli && bun run build && cd ../..",
-    "typecheck": "cd packages/runtime && bun run typecheck && cd ../server && bun run typecheck && cd ../cli && bun run typecheck",
+    "typecheck": "bun run build && cd packages/runtime && bun run typecheck && cd ../server && bun run typecheck && cd ../cli && bun run typecheck",
     "test": "bun run build && bun run test:workspaces",
     "test:workspaces": "cd packages/runtime && bun run test && cd ../server && bun run test && cd ../cli && bun run test",
     "format": "prettier --write .",
