@@ -27,7 +27,18 @@ type ParseBridgeCliArgsInput = {
   env?: NodeJS.ProcessEnv;
 };
 const DEFAULT_BASE_URL = "http://127.0.0.1:4318";
-const SERVER_SUBCOMMANDS = new Set(["start", "chat", "live-canary", "clear-session-vault"]);
+const SERVER_SUBCOMMANDS = new Set([
+  "start",
+  "status",
+  "stop",
+  "logs",
+  "chat",
+  "live-canary",
+  "clear-session-vault",
+  "providers",
+  "models",
+  "sessions"
+]);
 function parseBridgeCliArgs(input: ParseBridgeCliArgsInput): BridgeCliCommand {
   const env = input.env ?? process.env;
   const args = [...input.argv];
@@ -85,8 +96,14 @@ function getBridgeCliHelpText() {
     "openbridge",
     "",
     "Usage:",
-    "  openbridge start [--host <host>] [--port <port>] [--token <token>]",
+    "  openbridge start [--host <host>] [--port <port>] [--token <token>] [--foreground]",
+    "  openbridge status [--state-root <path>]",
+    "  openbridge stop [--state-root <path>]",
+    "  openbridge logs [--follow] [--lines <count>] [--state-root <path>]",
     "  openbridge health [--base-url <url>]",
+    "  openbridge providers <list|get|add|remove|enable|disable|import-session|session-status|clear-session> ...",
+    "  openbridge models <list|add> ...",
+    "  openbridge sessions <list|get|remove> ...",
     "  openbridge --session <id> [--input <text>] [--base-url <url>] [--provider <id>] [--model <id>] [--metadata <json>]",
     "  openbridge chat --model <id> --message <text> [--system <text>] [--base-url <url>] [--stream]",
     "  openbridge live-canary [--state-root <path>] [--provider <id>] [--model <id>]",
@@ -94,7 +111,11 @@ function getBridgeCliHelpText() {
     "",
     "Examples:",
     "  openbridge start",
+    "  openbridge status",
+    "  openbridge logs --follow",
     "  openbridge health",
+    "  openbridge providers list",
+    "  openbridge providers import-session provider-a --file ./session-package.json",
     '  openbridge --session demo "Read README.md"',
     '  openbridge --base-url http://127.0.0.1:4318 --session s1 --input "Run git status"'
   ].join("\n");

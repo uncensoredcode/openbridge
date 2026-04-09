@@ -57,6 +57,48 @@ type CheckBridgeHealthInput = {
   fetchImpl?: BridgeApiClientFetch;
   signal?: AbortSignal;
 };
+type BridgeAdminRequestInput = {
+  baseUrl: string;
+  fetchImpl?: BridgeApiClientFetch;
+  signal?: AbortSignal;
+};
+type GetBridgeProviderInput = BridgeAdminRequestInput & {
+  id: string;
+};
+type CreateBridgeProviderInput = BridgeAdminRequestInput & {
+  id: string;
+  kind: string;
+  label: string;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+};
+type UpdateBridgeProviderInput = BridgeAdminRequestInput & {
+  id: string;
+  patch: Record<string, unknown>;
+};
+type DeleteBridgeProviderInput = BridgeAdminRequestInput & {
+  id: string;
+};
+type GetBridgeProviderSessionPackageInput = BridgeAdminRequestInput & {
+  id: string;
+};
+type PutBridgeProviderSessionPackageInput = BridgeAdminRequestInput & {
+  id: string;
+  sessionPackage: Record<string, unknown>;
+};
+type DeleteBridgeProviderSessionPackageInput = BridgeAdminRequestInput & {
+  id: string;
+};
+type CreateBridgeModelInput = BridgeAdminRequestInput & {
+  provider: string;
+  model: string;
+};
+type GetBridgeSessionInput = BridgeAdminRequestInput & {
+  id: string;
+};
+type DeleteBridgeSessionInput = BridgeAdminRequestInput & {
+  id: string;
+};
 async function sendBridgeMessage(input: SendBridgeMessageInput): Promise<BridgeMessageResponse> {
   const response = await (input.fetchImpl ?? fetch)(
     buildSessionMessageUrl(input.baseUrl, input.sessionId),
@@ -154,6 +196,169 @@ function buildHealthUrl(baseUrl: string) {
 function buildChatCompletionsUrl(baseUrl: string) {
   return new URL("/v1/chat/completions", ensureBaseUrl(baseUrl)).toString();
 }
+function buildModelsUrl(baseUrl: string) {
+  return new URL("/v1/models", ensureBaseUrl(baseUrl)).toString();
+}
+function buildProvidersUrl(baseUrl: string) {
+  return new URL("/v1/providers", ensureBaseUrl(baseUrl)).toString();
+}
+function buildProviderUrl(baseUrl: string, providerId: string) {
+  return new URL(
+    `/v1/providers/${encodeURIComponent(providerId)}`,
+    ensureBaseUrl(baseUrl)
+  ).toString();
+}
+function buildProviderSessionPackageUrl(baseUrl: string, providerId: string) {
+  return new URL(
+    `/v1/providers/${encodeURIComponent(providerId)}/session-package`,
+    ensureBaseUrl(baseUrl)
+  ).toString();
+}
+function buildSessionsUrl(baseUrl: string) {
+  return new URL("/v1/sessions", ensureBaseUrl(baseUrl)).toString();
+}
+function buildSessionUrl(baseUrl: string, sessionId: string) {
+  return new URL(
+    `/v1/sessions/${encodeURIComponent(sessionId)}`,
+    ensureBaseUrl(baseUrl)
+  ).toString();
+}
+async function listBridgeModels(input: BridgeAdminRequestInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildModelsUrl(input.baseUrl),
+    method: "GET"
+  });
+}
+async function createBridgeModel(input: CreateBridgeModelInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildModelsUrl(input.baseUrl),
+    method: "POST",
+    body: {
+      provider: input.provider,
+      model: input.model
+    }
+  });
+}
+async function listBridgeProviders(input: BridgeAdminRequestInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProvidersUrl(input.baseUrl),
+    method: "GET"
+  });
+}
+async function getBridgeProvider(input: GetBridgeProviderInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderUrl(input.baseUrl, input.id),
+    method: "GET"
+  });
+}
+async function createBridgeProvider(input: CreateBridgeProviderInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProvidersUrl(input.baseUrl),
+    method: "POST",
+    body: {
+      id: input.id,
+      kind: input.kind,
+      label: input.label,
+      enabled: input.enabled,
+      config: input.config
+    }
+  });
+}
+async function updateBridgeProvider(input: UpdateBridgeProviderInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderUrl(input.baseUrl, input.id),
+    method: "PATCH",
+    body: input.patch
+  });
+}
+async function deleteBridgeProvider(input: DeleteBridgeProviderInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderUrl(input.baseUrl, input.id),
+    method: "DELETE"
+  });
+}
+async function getBridgeProviderSessionPackage(
+  input: GetBridgeProviderSessionPackageInput
+): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderSessionPackageUrl(input.baseUrl, input.id),
+    method: "GET"
+  });
+}
+async function putBridgeProviderSessionPackage(
+  input: PutBridgeProviderSessionPackageInput
+): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderSessionPackageUrl(input.baseUrl, input.id),
+    method: "PUT",
+    body: input.sessionPackage
+  });
+}
+async function deleteBridgeProviderSessionPackage(
+  input: DeleteBridgeProviderSessionPackageInput
+): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildProviderSessionPackageUrl(input.baseUrl, input.id),
+    method: "DELETE"
+  });
+}
+async function listBridgeSessions(input: BridgeAdminRequestInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildSessionsUrl(input.baseUrl),
+    method: "GET"
+  });
+}
+async function getBridgeSession(input: GetBridgeSessionInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildSessionUrl(input.baseUrl, input.id),
+    method: "GET"
+  });
+}
+async function deleteBridgeSession(input: DeleteBridgeSessionInput): Promise<unknown> {
+  return requestBridgeApiJson({
+    baseUrl: input.baseUrl,
+    fetchImpl: input.fetchImpl,
+    signal: input.signal,
+    url: buildSessionUrl(input.baseUrl, input.id),
+    method: "DELETE"
+  });
+}
 async function readBridgeApiError(response: Response) {
   let payload: BridgeApiErrorResponse | null = null;
   try {
@@ -186,6 +391,30 @@ async function fetchBridgeApi(
       cause: error
     });
   }
+}
+async function requestBridgeApiJson(input: {
+  baseUrl: string;
+  fetchImpl?: BridgeApiClientFetch;
+  signal?: AbortSignal;
+  url: string;
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  body?: unknown;
+}) {
+  const response = await fetchBridgeApi(input.baseUrl, input.fetchImpl, input.url, {
+    method: input.method,
+    headers:
+      input.body === undefined
+        ? undefined
+        : {
+            "Content-Type": "application/json"
+          },
+    body: input.body === undefined ? undefined : JSON.stringify(input.body),
+    signal: input.signal
+  });
+  if (!response.ok) {
+    throw await readBridgeApiError(response);
+  }
+  return (await response.json()) as unknown;
 }
 async function* readChatCompletionStream(response: Response): AsyncGenerator<string> {
   const stream = response.body;
@@ -337,10 +566,29 @@ export const bridgeApiClientModule = {
   sendBridgeMessage,
   checkBridgeHealth,
   createBridgeChatCompletion,
+  createBridgeModel,
+  createBridgeProvider,
+  deleteBridgeProvider,
+  deleteBridgeProviderSessionPackage,
+  deleteBridgeSession,
   streamBridgeChatCompletion,
   buildSessionMessageUrl,
   buildHealthUrl,
-  buildChatCompletionsUrl
+  buildChatCompletionsUrl,
+  buildModelsUrl,
+  buildProviderSessionPackageUrl,
+  buildProviderUrl,
+  buildProvidersUrl,
+  buildSessionUrl,
+  buildSessionsUrl,
+  getBridgeProvider,
+  getBridgeProviderSessionPackage,
+  getBridgeSession,
+  listBridgeModels,
+  listBridgeProviders,
+  listBridgeSessions,
+  putBridgeProviderSessionPackage,
+  updateBridgeProvider
 };
 
 export type {
@@ -348,7 +596,16 @@ export type {
   BridgeApiConnectionError,
   BridgeApiHttpError,
   CheckBridgeHealthInput,
+  CreateBridgeModelInput,
+  CreateBridgeProviderInput,
   CreateBridgeChatCompletionInput,
+  DeleteBridgeProviderInput,
+  DeleteBridgeProviderSessionPackageInput,
+  DeleteBridgeSessionInput,
+  GetBridgeProviderInput,
+  GetBridgeProviderSessionPackageInput,
+  GetBridgeSessionInput,
   SendBridgeMessageInput,
+  PutBridgeProviderSessionPackageInput,
   StreamBridgeChatCompletionInput
 };

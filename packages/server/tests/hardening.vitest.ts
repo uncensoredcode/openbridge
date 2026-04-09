@@ -1,5 +1,5 @@
 import { once } from "node:events";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import type { Server } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -218,7 +218,7 @@ describe("standalone bridge hardening", () => {
     const stdout = captureStream();
     const stderr = captureStream();
     const exitCode = await runBridgeServerCli({
-      argv: ["start", "--host", "0.0.0.0", "--port", "4318"],
+      argv: ["start", "--foreground", "--host", "0.0.0.0", "--port", "4318"],
       env: {
         BRIDGE_CORS_ORIGINS: "*",
         BRIDGE_SESSION_VAULT_KEY: createTestVaultKey()
@@ -246,7 +246,7 @@ describe("standalone bridge hardening", () => {
     const stderr = captureStream();
     const homeDir = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-home-"));
     const exitCode = await runBridgeServerCli({
-      argv: ["start", "--host", "127.0.0.1", "--port", "4318"],
+      argv: ["start", "--foreground", "--host", "127.0.0.1", "--port", "4318"],
       env: {
         HOME: homeDir
       },
@@ -267,7 +267,7 @@ describe("standalone bridge hardening", () => {
     const stderr = captureStream();
     const homeDir = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-home-"));
     const exitCode = await runBridgeServerCli({
-      argv: ["start", "--host", "127.0.0.1", "--port", "4318"],
+      argv: ["start", "--foreground", "--host", "127.0.0.1", "--port", "4318"],
       env: {
         HOME: homeDir
       },
@@ -289,6 +289,88 @@ describe("standalone bridge hardening", () => {
     });
     expect(exitCode).toBe(0);
     expect(stdout.text).toContain("Bridge server listening on http://127.0.0.1:4318");
+  });
+  it("starts detached by default and reports the log path", async () => {
+    const stdout = captureStream();
+    const stderr = captureStream();
+    const stateRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-state-"));
+    const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-runtime-"));
+    const statePath = path.join(stateRoot, "run", "server-process.json");
+    const logPath = path.join(stateRoot, "logs", "server.log");
+    const exitCode = await runBridgeServerCli({
+      argv: [
+        "start",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4318",
+        "--state-root",
+        stateRoot,
+        "--runtime-root",
+        runtimeRoot
+      ],
+      env: {
+        BRIDGE_SESSION_VAULT_KEY: createTestVaultKey()
+      },
+      stdout,
+      stderr,
+      fetchImpl: async () =>
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }),
+      spawnDetachedServerProcess: async ({ argv, logPath: spawnedLogPath }) => {
+        expect(argv).toContain("--foreground");
+        expect(spawnedLogPath).toBe(logPath);
+        await mkdir(path.dirname(statePath), {
+          recursive: true
+        });
+        await writeFile(
+          statePath,
+          `${JSON.stringify({
+            pid: process.pid,
+            baseUrl: "http://127.0.0.1:4318",
+            host: "127.0.0.1",
+            port: 4318,
+            logPath,
+            startedAt: "2026-04-09T12:00:00.000Z",
+            stateRoot
+          })}\n`
+        );
+        await mkdir(path.dirname(logPath), {
+          recursive: true
+        });
+        await writeFile(logPath, "booted\n", "utf8");
+        return {
+          pid: process.pid
+        };
+      }
+    });
+    expect(exitCode).toBe(0);
+    expect(stderr.text).toContain("Warning: Bridge auth token is not configured;");
+    expect(stdout.text).toContain("Bridge server started in background");
+    expect(stdout.text).toContain("Base URL: http://127.0.0.1:4318");
+    expect(stdout.text).toContain(`Logs: ${logPath}`);
+  });
+  it("prints the requested detached log tail", async () => {
+    const stateRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-state-"));
+    const logPath = path.join(stateRoot, "logs", "server.log");
+    await mkdir(path.dirname(logPath), {
+      recursive: true
+    });
+    await writeFile(logPath, "one\ntwo\nthree\n", "utf8");
+    const stdout = captureStream();
+    const stderr = captureStream();
+    const exitCode = await runBridgeServerCli({
+      argv: ["logs", "--state-root", stateRoot, "--lines", "2"],
+      stdout,
+      stderr
+    });
+    expect(exitCode).toBe(0);
+    expect(stderr.text).toBe("");
+    expect(stdout.text).toBe("two\nthree\n");
   });
   it("parses the standalone start token flag into bridge config", () => {
     const parsed = parseBridgeServerCliArgs({
