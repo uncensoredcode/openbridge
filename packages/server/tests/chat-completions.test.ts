@@ -1086,6 +1086,57 @@ test("chat completions normalize execute_shell_command tool calls to bash", asyn
     await close();
   }
 });
+test("chat completions normalize run_command tool calls to bash", async () => {
+  const transport = new ScriptedTransport(() => {
+    return {
+      content: '<tool>{"name":"run_command","arguments":{"command":"ping -c 4 localhost"}}</tool>'
+    };
+  });
+  const { baseUrl, close } = await startTestServer(transport);
+  try {
+    await createProvider(baseUrl, {
+      id: "provider-a",
+      kind: "scripted-chat",
+      label: "Provider A"
+    });
+    const response = await postJson(`${baseUrl}/v1/chat/completions`, {
+      model: "provider-a/model-beta",
+      messages: [
+        {
+          role: "user",
+          content: "Ping localhost and tell me what you get."
+        }
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "bash",
+            description: "Run a shell command",
+            parameters: {
+              type: "object",
+              properties: {
+                command: {
+                  type: "string"
+                }
+              },
+              required: ["command"]
+            }
+          }
+        }
+      ]
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.choices[0]?.finish_reason, "tool_calls");
+    assert.equal(response.body.choices[0]?.message?.tool_calls?.[0]?.function?.name, "bash");
+    assert.equal(
+      response.body.choices[0]?.message?.tool_calls?.[0]?.function?.arguments,
+      JSON.stringify({ command: "ping -c 4 localhost" })
+    );
+  } finally {
+    await close();
+  }
+});
 test("chat completions normalize code_interpreter tool calls to bash", async () => {
   const transport = new ScriptedTransport(() => {
     return {
