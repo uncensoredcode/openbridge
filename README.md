@@ -24,6 +24,16 @@ Maintainer note: I personally believe users should be extremely careful with any
 
 In other words: the extension is a convenience path, not a trust requirement.
 
+[Session Extraction Extension](https://github.com/uncensoredcode/session_extractor)
+
+## Demo
+
+
+
+https://github.com/user-attachments/assets/4c511b28-02e5-4f82-815e-82994da9baee
+
+
+
 ## Tested Targets
 
 Confirmed in the repo's transport/session-package test suite:
