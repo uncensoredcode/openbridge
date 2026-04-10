@@ -1,6 +1,6 @@
 {
   "name": "@uncensoredcode/openbridge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "OpenBridge runtime, server, and CLI for bridging AI providers through a unified interface.",
   "packageManager": "bun@1.3.11",
   "type": "module",
