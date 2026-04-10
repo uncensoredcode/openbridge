@@ -1,5 +1,6 @@
 const PROVIDER_TOOL_NAME_ALIASES: Record<string, string> = {
-  execute_shell_command: "bash"
+  execute_shell_command: "bash",
+  code_interpreter: "bash"
 };
 function normalizeProviderToolName(name: string) {
   const trimmed = name.trim();

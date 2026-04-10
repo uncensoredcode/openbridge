@@ -1014,16 +1014,31 @@ describe("standalone provider session-package API", () => {
         config: {
           models: ["qwen3.6-plus"],
           transport: {
+            prompt: {
+              mode: "flatten"
+            },
             binding: {
               firstTurn: "seed"
+            },
+            session: {
+              requireCookie: true,
+              requireBearerToken: false,
+              requireUserAgent: true,
+              includeExtraHeaders: true
             },
             request: {
               method: "POST",
               url: "https://chat.qwen.ai/api/v2/chat/completions?chat_id={{conversationId}}",
               body: {
-                chat_id: "{{conversationIdOrOmit}}",
-                parent_id: "{{parentIdOrOmit}}",
-                model: "{{modelId}}"
+                chat_id: "{{conversationId}}",
+                parent_id: "{{parentIdOrNull}}",
+                model: "{{modelId}}",
+                messages: [
+                  expect.objectContaining({
+                    fid: "{{messageId}}",
+                    content: "{{prompt}}"
+                  })
+                ]
               }
             },
             response: {
@@ -1033,7 +1048,8 @@ describe("standalone provider session-package API", () => {
                   path: "choices.0.delta.phase",
                   equals: "answer"
                 }
-              ]
+              ],
+              trimLeadingAssistantBlock: true
             },
             bootstrap: {
               request: {
@@ -1043,13 +1059,112 @@ describe("standalone provider session-package API", () => {
                   title: "New Chat",
                   models: ["{{modelId}}"],
                   chat_mode: "normal",
-                  chat_type: "t2t"
+                  chat_type: "t2t",
+                  timestamp: "{{unixTimestampMs}}",
+                  project_id: ""
                 }
               },
               conversationIdPath: "data.id"
             }
           }
         }
+      });
+    } finally {
+      await close();
+    }
+  });
+  it("normalizes first-turn Qwen captures with null parent ids into reusable follow-up templates", async () => {
+    const { baseUrl, close } = await startStandaloneServer();
+    try {
+      const response = await requestJson(`${baseUrl}/v1/providers/chat-qwen-ai/session-package`, {
+        method: "PUT",
+        body: {
+          ...createSessionPackagePayload(),
+          source: "browser-extension",
+          origin: "https://chat.qwen.ai",
+          headers: {
+            "User-Agent": "Captured UA",
+            Accept: "application/json"
+          },
+          metadata: {
+            browser: "Chrome",
+            requestCapture: {
+              requests: [
+                {
+                  url: "https://chat.qwen.ai/api/v2/chats/new",
+                  method: "POST",
+                  requestHeaders: {
+                    Accept: "application/json, text/plain, */*",
+                    "Content-Type": "application/json",
+                    Origin: "https://chat.qwen.ai",
+                    Referer: "https://chat.qwen.ai/c/new-chat"
+                  }
+                }
+              ],
+              selectedRequest: {
+                url: "https://chat.qwen.ai/api/v2/chat/completions?chat_id=ba6ae33a-0011-4a13-bded-082bd1bc0e5f",
+                method: "POST",
+                modelHints: ["qwen3.6-plus"],
+                requestBodyJson: {
+                  stream: true,
+                  version: "2.1",
+                  incremental_output: true,
+                  chat_id: "ba6ae33a-0011-4a13-bded-082bd1bc0e5f",
+                  chat_mode: "normal",
+                  model: "qwen3.6-plus",
+                  parent_id: null,
+                  messages: [
+                    {
+                      fid: "80e81cff-64cf-4bc7-8699-bd2ba37d2a73",
+                      parentId: null,
+                      childrenIds: ["aa22e91e-da32-4abd-bd27-6a165da87440"],
+                      role: "user",
+                      content: "Hello?",
+                      user_action: "chat",
+                      files: [],
+                      timestamp: 1775817091,
+                      models: ["qwen3.6-plus"],
+                      chat_type: "t2t",
+                      extra: {
+                        meta: {
+                          subChatType: "t2t"
+                        }
+                      },
+                      sub_chat_type: "t2t",
+                      parent_id: null
+                    }
+                  ],
+                  timestamp: 1775817094
+                }
+              }
+            }
+          },
+          integration: {
+            label: "Qwen Studio",
+            models: ["qwen3.6-plus"]
+          }
+        }
+      });
+      expect(response.status).toBe(200);
+      const provider = await requestJson(`${baseUrl}/v1/providers/chat-qwen-ai`);
+      expect(provider.status).toBe(200);
+      expect(provider.body.provider.config.transport.request.body).toMatchObject({
+        chat_id: "{{conversationId}}",
+        model: "{{modelId}}",
+        parent_id: "{{parentIdOrNull}}",
+        timestamp: "{{unixTimestampSec}}",
+        messages: [
+          {
+            fid: "{{messageId}}",
+            parentId: "{{parentIdOrNull}}",
+            parent_id: "{{parentIdOrNull}}",
+            childrenIds: [],
+            role: "user",
+            content: "{{prompt}}",
+            timestamp: "{{unixTimestampSec}}",
+            models: ["{{modelId}}"]
+          }
+        ]
       });
     } finally {
       await close();

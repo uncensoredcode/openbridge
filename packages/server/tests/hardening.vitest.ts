@@ -14,7 +14,8 @@ import type { BridgeApiServerLogger } from "../src/http/index.ts";
 import { httpModule } from "../src/http/index.ts";
 import { bridgeApiErrorModule } from "../src/shared/bridge-api-error.ts";
 
-const { parseBridgeServerCliArgs, runBridgeServerCli } = cliModule;
+const { buildDetachedServerLaunchCommand, parseBridgeServerCliArgs, runBridgeServerCli } =
+  cliModule;
 const { createLocalSessionPackageStore, createBridgeRuntimeService } = bridgeModule;
 const { loadBridgeServerConfig } = configModule;
 const { BridgeApiError } = bridgeApiErrorModule;
@@ -290,7 +291,29 @@ describe("standalone bridge hardening", () => {
     expect(exitCode).toBe(0);
     expect(stdout.text).toContain("Bridge server listening on http://127.0.0.1:4318");
   });
-  it("starts detached by default and reports the log path", async () => {
+  it("omits the log path from status output", async () => {
+    const stdout = captureStream();
+    const stderr = captureStream();
+    const stateRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-state-"));
+    const exitCode = await runBridgeServerCli({
+      argv: ["status", "--host", "127.0.0.1", "--port", "4318", "--state-root", stateRoot],
+      env: {
+        BRIDGE_SESSION_VAULT_KEY: createTestVaultKey()
+      },
+      stdout,
+      stderr
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr.text).toBe("");
+    expect(JSON.parse(stdout.text)).toEqual({
+      running: false,
+      healthy: null,
+      pid: null,
+      baseUrl: "http://127.0.0.1:4318",
+      startedAt: null
+    });
+  });
+  it("starts detached by default without reporting the log path", async () => {
     const stdout = captureStream();
     const stderr = captureStream();
     const stateRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-state-"));
@@ -352,7 +375,7 @@ describe("standalone bridge hardening", () => {
     expect(stderr.text).toContain("Warning: Bridge auth token is not configured;");
     expect(stdout.text).toContain("Bridge server started in background");
     expect(stdout.text).toContain("Base URL: http://127.0.0.1:4318");
-    expect(stdout.text).toContain(`Logs: ${logPath}`);
+    expect(stdout.text).not.toContain(`Logs: ${logPath}`);
   });
   it("prints the requested detached log tail", async () => {
     const stateRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-cli-state-"));
@@ -371,6 +394,27 @@ describe("standalone bridge hardening", () => {
     expect(exitCode).toBe(0);
     expect(stderr.text).toBe("");
     expect(stdout.text).toBe("two\nthree\n");
+  });
+  it("preserves loader args when detached start respawns a TypeScript entrypoint", () => {
+    expect(
+      buildDetachedServerLaunchCommand({
+        scriptPath: "/tmp/bridge-main.ts",
+        argv: ["start", "--foreground"],
+        execPath: "/usr/local/bin/node",
+        execArgv: ["--require", "/tmp/tsx/preflight.cjs", "--import", "file:///tmp/tsx/loader.mjs"]
+      })
+    ).toEqual({
+      command: "/usr/local/bin/node",
+      args: [
+        "--require",
+        "/tmp/tsx/preflight.cjs",
+        "--import",
+        "file:///tmp/tsx/loader.mjs",
+        "/tmp/bridge-main.ts",
+        "start",
+        "--foreground"
+      ]
+    });
   });
   it("parses the standalone start token flag into bridge config", () => {
     const parsed = parseBridgeServerCliArgs({

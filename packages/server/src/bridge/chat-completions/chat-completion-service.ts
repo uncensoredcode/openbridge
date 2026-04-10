@@ -84,7 +84,7 @@ type HandleBridgeChatCompletionRequestInput = {
 async function handleBridgeChatCompletionRequest(
   input: HandleBridgeChatCompletionRequestInput
 ): Promise<BridgeChatCompletionExecution> {
-  const body = input.body;
+  const body = normalizeRecoverableChatCompletionRequest(input.body);
   assertSupportedChatCompletionRequest(body);
   const resolvedModel = resolveBridgeModel(input.providerStore.list(), body.model);
   if (!resolvedModel) {
@@ -418,6 +418,31 @@ const chatCompletionsRequestSchema = z
     metadata: z.record(z.string(), z.unknown()).optional()
   })
   .strict();
+function normalizeRecoverableChatCompletionRequest(body: BridgeChatCompletionRequest) {
+  const messages = normalizeRecoverableChatCompletionMessages(body.messages);
+  return messages === body.messages
+    ? body
+    : {
+        ...body,
+        messages
+      };
+}
+function normalizeRecoverableChatCompletionMessages(
+  messages: BridgeChatCompletionRequest["messages"]
+) {
+  const normalized: BridgeChatCompletionRequest["messages"] = [];
+  let changed = false;
+  for (const message of messages) {
+    const previous = normalized.at(-1);
+    if (message.role === "user" && previous?.role === "user") {
+      normalized[normalized.length - 1] = message;
+      changed = true;
+      continue;
+    }
+    normalized.push(message);
+  }
+  return changed ? normalized : messages;
+}
 function assertSupportedChatCompletionRequest(body: BridgeChatCompletionRequest) {
   if (body.n !== undefined && body.n !== 1) {
     throw unsupportedChatCompletionsRequest(

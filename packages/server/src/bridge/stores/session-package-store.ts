@@ -493,7 +493,9 @@ function inferQwenConversationTransport(
         method: String(selectedRequest.method).toUpperCase(),
         url: "https://chat.qwen.ai/api/v2/chat/completions?chat_id={{conversationId}}",
         headers: {},
-        ...(requestBody === undefined ? {} : { body: requestBody })
+        ...(requestBody === undefined
+          ? {}
+          : { body: buildQwenConversationRequestBody(requestBody) })
       },
       response: {
         contentPaths: DEFAULT_SSE_CONTENT_PATHS,
@@ -1059,6 +1061,62 @@ function buildQwenBootstrapRequestBody(selectedRequest: Record<string, unknown>)
     timestamp: "{{unixTimestampMs}}",
     project_id: projectId
   };
+}
+function buildQwenConversationRequestBody(requestBody: unknown) {
+  if (typeof requestBody !== "object" || requestBody === null || Array.isArray(requestBody)) {
+    return requestBody;
+  }
+  const base = structuredClone(requestBody) as Record<string, unknown>;
+  if ("chat_id" in base) {
+    base.chat_id = "{{conversationId}}";
+  }
+  if ("model" in base) {
+    base.model = "{{modelId}}";
+  }
+  if ("timestamp" in base) {
+    base.timestamp = "{{unixTimestampSec}}";
+  }
+  if ("parent_id" in base) {
+    base.parent_id = "{{parentIdOrNull}}";
+  }
+  if (Array.isArray(base.messages) && base.messages.length > 0) {
+    base.messages = base.messages.map((message, index) =>
+      index === 0 ? buildQwenConversationUserMessage(message) : message
+    );
+  }
+  return base;
+}
+function buildQwenConversationUserMessage(message: unknown) {
+  if (typeof message !== "object" || message === null || Array.isArray(message)) {
+    return {
+      fid: "{{messageId}}",
+      role: "user",
+      content: "{{prompt}}"
+    };
+  }
+  const nextMessage = structuredClone(message) as Record<string, unknown>;
+  nextMessage.fid = "{{messageId}}";
+  nextMessage.role = "user";
+  nextMessage.content = "{{prompt}}";
+  if ("timestamp" in nextMessage) {
+    nextMessage.timestamp = "{{unixTimestampSec}}";
+  }
+  if ("models" in nextMessage) {
+    nextMessage.models = ["{{modelId}}"];
+  }
+  if ("parentId" in nextMessage) {
+    nextMessage.parentId = "{{parentIdOrNull}}";
+  }
+  if ("parent_id" in nextMessage) {
+    nextMessage.parent_id = "{{parentIdOrNull}}";
+  }
+  if ("childrenIds" in nextMessage && Array.isArray(nextMessage.childrenIds)) {
+    nextMessage.childrenIds = [];
+  }
+  if ("children_ids" in nextMessage && Array.isArray(nextMessage.children_ids)) {
+    nextMessage.children_ids = [];
+  }
+  return nextMessage;
 }
 function buildOpenAiConversationRequestBody(requestBody: Record<string, unknown> | null) {
   const base = requestBody ? structuredClone(requestBody) : {};
@@ -1685,6 +1743,7 @@ export const sessionPackageStoreModule = {
   sessionPackageMetadataSchema,
   installedProviderPackageSchema,
   createInMemorySessionPackageStore,
+  buildQwenConversationRequestBody,
   buildSessionPackageStatus,
   cloneProvider,
   cloneConfig,

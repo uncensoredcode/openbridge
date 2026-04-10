@@ -326,6 +326,35 @@ test("runtime normalizes execute_shell_command tool calls to bash", async () => 
   assert.equal(outcome.message, "done");
   assert.equal(provider.repairCalls, 0);
 });
+test("runtime normalizes code_interpreter tool calls to bash", async () => {
+  const provider = createRepairAwareProvider({
+    async main(turn) {
+      const toolResults = turn.conversation.entries.filter((entry) => entry.type === "tool_result");
+      if (toolResults.length === 0) {
+        return createToolResponse({
+          name: "code_interpreter",
+          arguments: {
+            command: "printf 'pong'"
+          }
+        });
+      }
+      return createFinalResponse("done");
+    },
+    async repair() {
+      throw new Error("repair should not be called");
+    }
+  });
+  const outcome = await runBridgeRuntime({
+    userMessage: "Ping localhost and tell me what you get.",
+    provider: provider.provider,
+    toolExecutor: new InProcessToolExecutor({
+      tools: [createBashTool({ runtimeRoot: process.cwd() })]
+    })
+  });
+  assert.equal(outcome.mode, "final");
+  assert.equal(outcome.message, "done");
+  assert.equal(provider.repairCalls, 0);
+});
 test("bash tool detaches long-running commands and returns process metadata", async (t) => {
   const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-runtime-bash-"));
   const bashTool = createBashTool({ runtimeRoot });

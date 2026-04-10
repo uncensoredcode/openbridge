@@ -194,6 +194,11 @@ type SpawnDetachedServerProcessResult = {
   pid: number;
 };
 
+type DetachedServerLaunchCommand = {
+  command: string;
+  args: string[];
+};
+
 type StartCommandOptions = {
   host?: string;
   port?: string;
@@ -362,7 +367,8 @@ async function runBridgeServerCli(input: RunBridgeServerCliInput): Promise<numbe
     }
     if (command.kind === "status") {
       const status = await getServerStatus(command.config, input.fetchImpl);
-      writeJson(stdout, status);
+      const { logPath: _logPath, ...statusOutput } = status;
+      writeJson(stdout, statusOutput);
       return status.running && status.healthy !== false ? 0 : 1;
     }
     if (command.kind === "stop") {
@@ -576,13 +582,11 @@ async function runBridgeServerCli(input: RunBridgeServerCliInput): Promise<numbe
         readyState === null
           ? [
               `Bridge server started in background (pid ${daemon.pid}).`,
-              `Logs: ${processFiles.logPath}`,
               `Startup is still pending; check status with "openbridge status".`
             ].join("\n")
           : [
               `Bridge server started in background (pid ${readyState.pid}).`,
-              `Base URL: ${readyState.baseUrl}`,
-              `Logs: ${readyState.logPath}`
+              `Base URL: ${readyState.baseUrl}`
             ].join("\n");
       stdout.write(`${statusMessage}\n`);
       return 0;
@@ -1667,7 +1671,13 @@ async function defaultSpawnDetachedServerProcess(input: SpawnDetachedServerProce
   });
   const logHandle = await open(input.logPath, "a", 0o600);
   try {
-    const child = spawn(process.execPath, [scriptPath, ...input.argv], {
+    const launch = buildDetachedServerLaunchCommand({
+      scriptPath,
+      argv: input.argv,
+      execPath: process.execPath,
+      execArgv: process.execArgv
+    });
+    const child = spawn(launch.command, launch.args, {
       cwd: input.cwd,
       env: input.env,
       detached: true,
@@ -1683,6 +1693,18 @@ async function defaultSpawnDetachedServerProcess(input: SpawnDetachedServerProce
   } finally {
     await logHandle.close();
   }
+}
+
+function buildDetachedServerLaunchCommand(input: {
+  scriptPath: string;
+  argv: string[];
+  execPath: string;
+  execArgv: string[];
+}): DetachedServerLaunchCommand {
+  return {
+    command: input.execPath,
+    args: [...input.execArgv, input.scriptPath, ...input.argv]
+  };
 }
 
 function toForegroundStartArgv(argv: string[]) {
@@ -1776,6 +1798,7 @@ function requireConfigPath(value: string | undefined, key: string) {
 }
 
 export const runBridgeServerCliModule = {
+  buildDetachedServerLaunchCommand,
   runBridgeServerCli,
   parseBridgeServerCliArgs,
   getBridgeServerCliHelpText

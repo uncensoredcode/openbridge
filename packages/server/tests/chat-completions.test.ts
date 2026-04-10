@@ -1086,6 +1086,161 @@ test("chat completions normalize execute_shell_command tool calls to bash", asyn
     await close();
   }
 });
+test("chat completions normalize code_interpreter tool calls to bash", async () => {
+  const transport = new ScriptedTransport(() => {
+    return {
+      content:
+        '<tool>{"name":"code_interpreter","arguments":{"command":"ping -c 4 localhost"}}</tool>'
+    };
+  });
+  const { baseUrl, close } = await startTestServer(transport);
+  try {
+    await createProvider(baseUrl, {
+      id: "provider-a",
+      kind: "scripted-chat",
+      label: "Provider A"
+    });
+    const response = await postJson(`${baseUrl}/v1/chat/completions`, {
+      model: "provider-a/model-beta",
+      messages: [
+        {
+          role: "user",
+          content: "Ping localhost and tell me what you get."
+        }
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "bash",
+            description: "Run a shell command",
+            parameters: {
+              type: "object",
+              properties: {
+                command: {
+                  type: "string"
+                }
+              },
+              required: ["command"]
+            }
+          }
+        }
+      ]
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.choices[0]?.finish_reason, "tool_calls");
+    assert.equal(response.body.choices[0]?.message?.tool_calls?.[0]?.function?.name, "bash");
+    assert.equal(
+      response.body.choices[0]?.message?.tool_calls?.[0]?.function?.arguments,
+      JSON.stringify({ command: "ping -c 4 localhost" })
+    );
+  } finally {
+    await close();
+  }
+});
+test("chat completions recover when the client retries after a failed turn with another user message", async () => {
+  const transport = new ScriptedTransport((request) => {
+    if (transport.calls.length === 1) {
+      return {
+        content: createFinalResponse("Hello from the bridge.")
+      };
+    }
+    if (transport.calls.length === 2) {
+      return {
+        content: '<tool>{"name":"web_search","arguments":{"queries":["ping localhost"]}}</tool>'
+      };
+    }
+    assert.match(
+      String(request.messages.at(-1)?.content),
+      /ping localhost and show me the results pls/u
+    );
+    assert.doesNotMatch(String(request.messages.at(-1)?.content), /USER:\nping localhost pls/u);
+    return {
+      content: createFinalResponse("pong")
+    };
+  });
+  const { baseUrl, close } = await startTestServer(transport);
+  const bashTool = {
+    type: "function" as const,
+    function: {
+      name: "bash",
+      description: "Run a shell command",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string"
+          }
+        },
+        required: ["command"]
+      }
+    }
+  };
+  try {
+    await createProvider(baseUrl, {
+      id: "provider-a",
+      kind: "scripted-chat",
+      label: "Provider A"
+    });
+    const first = await postJson(`${baseUrl}/v1/chat/completions`, {
+      model: "provider-a/model-beta",
+      messages: [
+        {
+          role: "user",
+          content: "hello?"
+        }
+      ]
+    });
+    assert.equal(first.status, 200);
+    assert.equal(first.body.choices[0]?.message?.content, "Hello from the bridge.");
+    const failed = await postJson(`${baseUrl}/v1/chat/completions`, {
+      model: "provider-a/model-beta",
+      messages: [
+        {
+          role: "user",
+          content: "hello?"
+        },
+        {
+          role: "assistant",
+          content: "Hello from the bridge."
+        },
+        {
+          role: "user",
+          content: "ping localhost pls"
+        }
+      ],
+      tools: [bashTool]
+    });
+    assert.equal(failed.status, 400);
+    assert.equal(failed.body.error?.message, 'Provider requested unavailable tool "web_search".');
+    const recovered = await postJson(`${baseUrl}/v1/chat/completions`, {
+      model: "provider-a/model-beta",
+      messages: [
+        {
+          role: "user",
+          content: "hello?"
+        },
+        {
+          role: "assistant",
+          content: "Hello from the bridge."
+        },
+        {
+          role: "user",
+          content: "ping localhost pls"
+        },
+        {
+          role: "user",
+          content: "ping localhost and show me the results pls"
+        }
+      ],
+      tools: [bashTool]
+    });
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.choices[0]?.message?.content, "pong");
+  } finally {
+    await close();
+  }
+});
 test("chat completions continue across tool-result follow-up turns and preserve continuity", async () => {
   const transport = new ScriptedTransport((request) => {
     if (transport.calls.length === 1) {

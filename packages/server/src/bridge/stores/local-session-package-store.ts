@@ -30,6 +30,7 @@ import type {
 import { sessionPackageStoreModule } from "./session-package-store.ts";
 
 const {
+  buildQwenConversationRequestBody,
   buildSessionPackageMetadata,
   cloneConfig,
   cloneInstalledProviderPackage,
@@ -364,7 +365,7 @@ function createLocalSessionPackageStore(
       return null;
     }
     const entry = readVaultEntry(metadata);
-    return decryptInstalledPackage(entry, key);
+    return normalizeInstalledProviderPackage(decryptInstalledPackage(entry, key));
   }
   function readVaultIndex(): VaultIndex {
     if (!existsSync(indexPath)) {
@@ -433,6 +434,56 @@ function createLocalSessionPackageStore(
   function getEntryPath(handle: string) {
     return path.join(entriesPath, `${handle}.json`);
   }
+}
+function normalizeInstalledProviderPackage(
+  installed: InstalledProviderPackage
+): InstalledProviderPackage {
+  const transport = readInstalledQwenTransport(installed.provider.config);
+  if (!transport) {
+    return installed;
+  }
+  const request = readInstalledTransportRequest(transport);
+  if (!request || !("body" in request)) {
+    return installed;
+  }
+  const normalizedBody = buildQwenConversationRequestBody(request.body);
+  if (JSON.stringify(normalizedBody) === JSON.stringify(request.body)) {
+    return installed;
+  }
+  return installedProviderPackageSchema.parse({
+    provider: {
+      ...cloneProvider(installed.provider),
+      config: {
+        ...cloneConfig(installed.provider.config),
+        transport: {
+          ...transport,
+          request: {
+            ...request,
+            body: normalizedBody
+          }
+        }
+      }
+    },
+    session: installed.session ? cloneSessionPackage(installed.session) : null
+  });
+}
+function readInstalledQwenTransport(config: Record<string, unknown>) {
+  const transport =
+    typeof config.transport === "object" &&
+    config.transport !== null &&
+    !Array.isArray(config.transport)
+      ? (config.transport as Record<string, unknown>)
+      : null;
+  const request = readInstalledTransportRequest(transport);
+  const url = typeof request?.url === "string" ? request.url.trim() : "";
+  return /^https:\/\/chat\.qwen\.ai\/api\/v2\/chat\/completions\b/u.test(url) ? transport : null;
+}
+function readInstalledTransportRequest(transport: Record<string, unknown> | null) {
+  return typeof transport?.request === "object" &&
+    transport.request !== null &&
+    !Array.isArray(transport.request)
+    ? (transport.request as Record<string, unknown>)
+    : null;
 }
 function encryptInstalledPackage(
   metadata: SessionPackageMetadata,

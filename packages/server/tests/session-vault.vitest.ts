@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -158,6 +159,94 @@ describe("local session vault", () => {
     expect(persisted).not.toContain("new-secret-cookie");
     expect(persisted).not.toContain("new-secret-token");
   });
+  it("normalizes stale installed Qwen request templates when reopening the vault", async () => {
+    const vaultPath = await mkdtemp(path.join(os.tmpdir(), "bridge-server-vault-"));
+    const keyPath = path.join(
+      await mkdtemp(path.join(os.tmpdir(), "bridge-server-vault-key-")),
+      "vault.key"
+    );
+    const store = createLocalSessionPackageStore({
+      vaultPath,
+      keyPath
+    });
+    const payload = createQwenSessionPackagePayload();
+    const metadata = store.put("chat-qwen-ai", payload);
+    const key = Buffer.from((await readFile(keyPath, "utf8")).trim(), "base64");
+    const entryPath = path.join(vaultPath, "entries", `${metadata.handle}.json`);
+    const entry = JSON.parse(await readFile(entryPath, "utf8")) as Record<string, unknown>;
+    await writeFile(
+      entryPath,
+      `${JSON.stringify(
+        encryptVaultPayload(key, {
+          ...entry,
+          ciphertextPayload: {
+            provider: {
+              id: "chat-qwen-ai",
+              kind: "http-sse",
+              label: "Qwen Studio",
+              enabled: true,
+              config: {
+                models: ["qwen3.6-plus"],
+                transport: {
+                  request: {
+                    method: "POST",
+                    url: "https://chat.qwen.ai/api/v2/chat/completions?chat_id={{conversationId}}",
+                    body: {
+                      chat_id: "{{conversationIdOrOmit}}",
+                      model: "{{modelId}}",
+                      parent_id: null,
+                      messages: [
+                        {
+                          fid: "{{messageId}}",
+                          parentId: null,
+                          childrenIds: ["captured-child"],
+                          role: "user",
+                          content: "{{prompt}}",
+                          timestamp: "{{unixTimestampSec}}",
+                          models: ["{{modelId}}"],
+                          parent_id: null
+                        }
+                      ],
+                      timestamp: "{{unixTimestampSec}}"
+                    }
+                  }
+                }
+              },
+              createdAt: "2026-04-10T10:32:29.574Z",
+              updatedAt: "2026-04-10T10:32:29.574Z"
+            },
+            session: payload
+          }
+        }),
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+    const reopened = createLocalSessionPackageStore({
+      vaultPath,
+      keyPath
+    });
+    expect(reopened.getProvider("chat-qwen-ai")).toMatchObject({
+      config: {
+        transport: {
+          request: {
+            body: {
+              chat_id: "{{conversationId}}",
+              parent_id: "{{parentIdOrNull}}",
+              messages: [
+                {
+                  parentId: "{{parentIdOrNull}}",
+                  parent_id: "{{parentIdOrNull}}",
+                  childrenIds: []
+                }
+              ]
+            }
+          }
+        }
+      }
+    });
+  });
   it("rejects invalid vault contents safely", async () => {
     const vaultPath = await mkdtemp(path.join(os.tmpdir(), "bridge-server-vault-"));
     const keyPath = path.join(
@@ -225,6 +314,26 @@ describe("local session vault", () => {
     expect(reopened.getStatus("provider-a")).toBeNull();
   });
 });
+function encryptVaultPayload(
+  key: Buffer,
+  input: Record<string, unknown> & {
+    ciphertextPayload: unknown;
+  }
+) {
+  const iv = Buffer.from(String(input.iv), "base64");
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([
+    cipher.update(Buffer.from(JSON.stringify(input.ciphertextPayload), "utf8")),
+    cipher.final()
+  ]);
+  const authTag = cipher.getAuthTag();
+  const { ciphertextPayload: _ciphertextPayload, ...rest } = input;
+  return {
+    ...rest,
+    authTag: authTag.toString("base64"),
+    ciphertext: ciphertext.toString("base64")
+  };
+}
 function createSessionPackagePayload(
   overrides: Partial<{
     cookies: Array<Record<string, unknown>>;
@@ -252,6 +361,76 @@ function createSessionPackagePayload(
     },
     metadata: overrides.metadata ?? {
       browser: "Chrome"
+    }
+  };
+}
+function createQwenSessionPackagePayload() {
+  return {
+    source: "browser-extension",
+    capturedAt: "2026-04-10T10:31:34.333Z",
+    origin: "https://chat.qwen.ai",
+    cookies: [
+      {
+        name: "session",
+        value: "secret-cookie"
+      }
+    ],
+    localStorage: {},
+    sessionStorage: {},
+    headers: {
+      "User-Agent": "Captured UA"
+    },
+    metadata: {
+      browser: "Chrome",
+      requestCapture: {
+        requests: [
+          {
+            url: "https://chat.qwen.ai/api/v2/chats/new",
+            method: "POST",
+            requestHeaders: {
+              Accept: "application/json, text/plain, */*",
+              "Content-Type": "application/json",
+              Origin: "https://chat.qwen.ai",
+              Referer: "https://chat.qwen.ai/c/new-chat"
+            }
+          }
+        ],
+        selectedRequest: {
+          url: "https://chat.qwen.ai/api/v2/chat/completions?chat_id=ba6ae33a-0011-4a13-bded-082bd1bc0e5f",
+          method: "POST",
+          modelHints: ["qwen3.6-plus"],
+          requestBodyJson: {
+            stream: true,
+            version: "2.1",
+            incremental_output: true,
+            chat_id: "ba6ae33a-0011-4a13-bded-082bd1bc0e5f",
+            chat_mode: "normal",
+            model: "qwen3.6-plus",
+            parent_id: null,
+            messages: [
+              {
+                fid: "80e81cff-64cf-4bc7-8699-bd2ba37d2a73",
+                parentId: null,
+                childrenIds: ["aa22e91e-da32-4abd-bd27-6a165da87440"],
+                role: "user",
+                content: "Hello?",
+                user_action: "chat",
+                files: [],
+                timestamp: 1775817091,
+                models: ["qwen3.6-plus"],
+                chat_type: "t2t",
+                sub_chat_type: "t2t",
+                parent_id: null
+              }
+            ],
+            timestamp: 1775817094
+          }
+        }
+      }
+    },
+    integration: {
+      label: "Qwen Studio",
+      models: ["qwen3.6-plus"]
     }
   };
 }
