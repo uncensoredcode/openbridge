@@ -348,7 +348,10 @@ async function ensureConversationBinding(
     }
   );
   const payload = await readJsonResponse(bootstrapResponse, request.providerId, "bootstrap");
-  const conversationId = extractFirstString(payload, profile.bootstrap.conversationIdPath);
+  const conversationId = extractBootstrapConversationId(
+    payload,
+    profile.bootstrap.conversationIdPath
+  );
   if (!conversationId) {
     throw new ProviderFailure({
       kind: "permanent",
@@ -944,6 +947,27 @@ function extractFirstString(payload: unknown, path: string) {
     }
     if (typeof value === "number" && Number.isFinite(value)) {
       return String(value);
+    }
+  }
+  return "";
+}
+function extractBootstrapConversationId(payload: unknown, configuredPath: string) {
+  const candidates = [configuredPath];
+  if (configuredPath.endsWith(".chat_session.id")) {
+    candidates.push(configuredPath.replace(/\.chat_session\.id$/, ".id"));
+  }
+  if (configuredPath.endsWith(".chat_session_id")) {
+    candidates.push(configuredPath.replace(/\.chat_session_id$/, ".id"));
+  }
+  for (const path of ["data.biz_data.id", "data.id", "id"]) {
+    if (!candidates.includes(path)) {
+      candidates.push(path);
+    }
+  }
+  for (const path of candidates) {
+    const value = extractFirstString(payload, path);
+    if (value) {
+      return value;
     }
   }
   return "";

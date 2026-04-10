@@ -613,7 +613,7 @@ function inferDeepSeekConversationTransport(
           headers: bootstrapHeaders,
           body: {}
         },
-        conversationIdPath: "data.biz_data.chat_session.id"
+        conversationIdPath: "data.biz_data.id"
       },
       preflight: {
         request: {

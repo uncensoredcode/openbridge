@@ -1287,7 +1287,7 @@ describe("standalone provider session-package API", () => {
                 method: "POST",
                 url: "https://chat.deepseek.com/api/v0/chat_session/create"
               },
-              conversationIdPath: "data.biz_data.chat_session.id"
+              conversationIdPath: "data.biz_data.id"
             },
             preflight: {
               request: {

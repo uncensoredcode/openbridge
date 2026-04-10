@@ -236,7 +236,8 @@ function summarizeProviderContent(value: string, maxLength = 320) {
 
 export const webProviderTransportModule = {
   WebProviderTransport,
-  collectProviderTransportCompletion
+  collectProviderTransportCompletion,
+  collectProviderTransportCompletionWithResolver
 };
 
 export type { StreamingProviderTransport, WebProviderTransport };

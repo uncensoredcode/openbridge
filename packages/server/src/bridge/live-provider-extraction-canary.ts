@@ -1,15 +1,22 @@
 import crypto from "node:crypto";
+import path from "node:path";
 
 import type { ProviderFailureCode } from "@uncensoredcode/openbridge/runtime";
 import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import type { BridgeServerConfig } from "../config/index.ts";
+import { providerSessionResolverModule } from "./providers/provider-session-resolver.ts";
 import { webProviderTransportModule } from "./providers/web-provider-transport.ts";
 import { fileBridgeStateStoreModule } from "./state/file-bridge-state-store.ts";
+import { localSessionPackageStoreModule } from "./stores/local-session-package-store.ts";
+import { sessionBackedProviderStoreModule } from "./stores/session-backed-provider-store.ts";
 
 const { classifyProviderTransportError, formatProviderFailureMessage } = bridgeRuntime;
-const { collectProviderTransportCompletion } = webProviderTransportModule;
+const { createBridgeProviderSessionResolver } = providerSessionResolverModule;
+const { collectProviderTransportCompletionWithResolver } = webProviderTransportModule;
 const { FileBridgeStateStore } = fileBridgeStateStoreModule;
+const { createLocalSessionPackageStore } = localSessionPackageStoreModule;
+const { createSessionBackedProviderStore } = sessionBackedProviderStoreModule;
 const DEFAULT_LIVE_CANARY_PROMPT = "Reply with exactly OK.";
 const DEFAULT_LIVE_CANARY_EXPECTED_SUBSTRING = "OK";
 type LiveProviderCanaryCompletion = {
@@ -89,7 +96,8 @@ async function runLiveProviderExtractionCanary(
   const requestId = input.requestId ?? `live-canary:${crypto.randomUUID()}`;
   const startedAt = (input.now ?? Date.now)();
   const stateStore = new FileBridgeStateStore(input.stateRoot ?? input.config.stateRoot);
-  const collectCompletion = input.collectCompletion ?? collectProviderTransportCompletion;
+  const collectCompletion =
+    input.collectCompletion ?? createLiveProviderCompletionCollector(input.config, stateStore);
   try {
     const result = await collectCompletion(stateStore, {
       lane: "main",
@@ -261,6 +269,25 @@ function readExpectedSubstring(value: string | undefined) {
     throw new Error("expected substring must be a non-empty string.");
   }
   return expectedSubstring;
+}
+function createLiveProviderCompletionCollector(
+  config: BridgeServerConfig,
+  stateStore: InstanceType<typeof FileBridgeStateStore>
+): LiveProviderCanaryCompletionCollector {
+  const sessionPackageStore = createLocalSessionPackageStore({
+    vaultPath: config.sessionVaultPath ?? path.join(stateStore.rootDir, "session-vault"),
+    keyPath:
+      config.sessionVaultKeyPath ?? path.join(stateStore.rootDir, "keys", "session-vault.key")
+  });
+  const providerStore = createSessionBackedProviderStore(sessionPackageStore);
+  const providerSessionResolver = createBridgeProviderSessionResolver({
+    sessionPackageStore,
+    stateStore
+  });
+  return async (_stateStore, request) =>
+    collectProviderTransportCompletionWithResolver(providerSessionResolver, request, (providerId) =>
+      providerStore.get(providerId)
+    );
 }
 
 export const liveProviderExtractionCanaryModule = {
