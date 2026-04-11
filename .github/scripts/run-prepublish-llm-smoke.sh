@@ -153,6 +153,7 @@ require_env "BRIDGE_MODEL_ID"
 require_env "BRIDGE_SESSION_JSON"
 
 REPO_ROOT="${GITHUB_WORKSPACE:-$PWD}"
+BRIDGE_SERVER_CLI="$REPO_ROOT/packages/server/dist/cli/main.js"
 BRIDGE_HOST="${BRIDGE_HOST:-127.0.0.1}"
 BRIDGE_PORT="${BRIDGE_PORT:-4318}"
 BRIDGE_BASE_URL="${BRIDGE_BASE_URL:-http://${BRIDGE_HOST}:${BRIDGE_PORT}}"
@@ -172,6 +173,10 @@ fi
 
 if ! command -v opencode >/dev/null 2>&1; then
   printf 'opencode is not installed or not on PATH.\n' >&2
+  exit 1
+fi
+if [[ ! -f "$BRIDGE_SERVER_CLI" ]]; then
+  printf 'Bridge server CLI build output is missing at %s\n' "$BRIDGE_SERVER_CLI" >&2
   exit 1
 fi
 
@@ -227,7 +232,7 @@ cat >"$OPENCODE_WORKDIR/opencode.json" <<EOF
 }
 EOF
 
-node ./bin/openbridge.js start \
+node "$BRIDGE_SERVER_CLI" start \
   --foreground \
   --host "$BRIDGE_HOST" \
   --port "$BRIDGE_PORT" \
@@ -237,12 +242,12 @@ server_pid=$!
 
 wait_for_bridge
 
-node ./bin/openbridge.js providers import-session \
+node "$BRIDGE_SERVER_CLI" providers import-session \
   "$BRIDGE_PROVIDER_ID" \
   --base-url "$BRIDGE_BASE_URL" \
   --file "$SESSION_FILE" >"$WORK_ROOT/import-session.json"
 
-node ./bin/openbridge.js models add \
+node "$BRIDGE_SERVER_CLI" models add \
   --base-url "$BRIDGE_BASE_URL" \
   --provider "$BRIDGE_PROVIDER_ID" \
   --model "$BRIDGE_MODEL_ID" >"$WORK_ROOT/add-model.json"
