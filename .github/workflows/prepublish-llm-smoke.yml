@@ -25,18 +25,6 @@ jobs:
             provider_id: chat-qwen-ai
             model_id: qwen3.6-plus
             session_secret: QWEN_SESSION
-          - label: deepseek
-            provider_id: chat-deepseek-com
-            model_id: deepseek-chat
-            session_secret: DEEPSEEK_SESSION
-          - label: kimi
-            provider_id: kimi
-            model_id: kimi-k2@instant
-            session_secret: KIMI_SESSION
-          - label: zai
-            provider_id: zai
-            model_id: glm-4.7
-            session_secret: ZAI_SESSION
 
     steps:
       - name: Checkout
