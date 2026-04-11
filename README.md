@@ -28,11 +28,7 @@ In other words: the extension is a convenience path, not a trust requirement.
 
 ## Demo
 
-
-
 https://github.com/user-attachments/assets/4c511b28-02e5-4f82-815e-82994da9baee
-
-
 
 ## Tested Targets
 

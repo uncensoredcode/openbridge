@@ -18,7 +18,7 @@ print_file() {
   local label="$1"
   local file_path="$2"
   if [[ -f "$file_path" ]]; then
-    printf '--- %s (%s) ---\n' "$label" "$file_path"
+    printf -- '--- %s (%s) ---\n' "$label" "$file_path"
     sed -n '1,240p' "$file_path"
   fi
 }
@@ -163,6 +163,7 @@ SESSION_FILE="$WORK_ROOT/session-package.json"
 OPENCODE_WORKDIR="$WORK_ROOT/opencode-workdir"
 OPENCODE_XDG_ROOT="$WORK_ROOT/opencode-xdg"
 SESSION_SECRET_NAME="${SESSION_SECRET_NAME:-unknown}"
+BRIDGE_SESSION_VAULT_KEY="${BRIDGE_SESSION_VAULT_KEY:-$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))")}"
 
 if [[ -z "${BRIDGE_SESSION_JSON//[[:space:]]/}" ]]; then
   printf 'The %s secret is empty for provider %s.\n' "$SESSION_SECRET_NAME" "$BRIDGE_PROVIDER_ID" >&2
@@ -173,6 +174,8 @@ if ! command -v opencode >/dev/null 2>&1; then
   printf 'opencode is not installed or not on PATH.\n' >&2
   exit 1
 fi
+
+export BRIDGE_SESSION_VAULT_KEY
 
 mkdir -p "$WORK_ROOT" "$BRIDGE_STATE_ROOT" "$OPENCODE_WORKDIR"
 mkdir -p \
