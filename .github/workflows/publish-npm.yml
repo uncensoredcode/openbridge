@@ -16,7 +16,13 @@ permissions:
   id-token: write
 
 jobs:
+  prepublish-smoke:
+    uses: ./.github/workflows/prepublish-llm-smoke.yml
+    secrets: inherit
+
   publish:
+    needs:
+      - prepublish-smoke
     runs-on: ubuntu-latest
 
     steps:
