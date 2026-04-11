@@ -116,11 +116,11 @@ run_opencode_prompt() {
   run_log="$WORK_ROOT/${prompt_slug}.run.jsonl"
   export_log="$WORK_ROOT/${prompt_slug}.export.log"
 
-  printf 'Running prompt against %s/%s: %s\n' "$BRIDGE_PROVIDER_ID" "$BRIDGE_MODEL_ID" "$prompt"
+  printf 'Running prompt against %s: %s\n' "$BRIDGE_PUBLIC_MODEL_ID" "$prompt"
 
   if ! timeout 240s opencode run \
     --format json \
-    --model "${BRIDGE_PROVIDER_ID}/${BRIDGE_MODEL_ID}" \
+    --model "${BRIDGE_PROVIDER_ALIAS}/${BRIDGE_PUBLIC_MODEL_ID}" \
     "$prompt" >"$run_log" 2>&1; then
     printf 'opencode run failed for prompt: %s\n' "$prompt" >&2
     dump_debug "$run_log"
@@ -157,6 +157,8 @@ BRIDGE_SERVER_CLI="$REPO_ROOT/packages/server/dist/cli/main.js"
 BRIDGE_HOST="${BRIDGE_HOST:-127.0.0.1}"
 BRIDGE_PORT="${BRIDGE_PORT:-4318}"
 BRIDGE_BASE_URL="${BRIDGE_BASE_URL:-http://${BRIDGE_HOST}:${BRIDGE_PORT}}"
+BRIDGE_PROVIDER_ALIAS="${BRIDGE_PROVIDER_ALIAS:-bridge}"
+BRIDGE_PUBLIC_MODEL_ID="${BRIDGE_PROVIDER_ID}/${BRIDGE_MODEL_ID}"
 WORK_ROOT="${RUNNER_TEMP:-$(mktemp -d)}/prepublish-llm-smoke-$(slugify "${BRIDGE_PROVIDER_ID}-${BRIDGE_MODEL_ID}")"
 BRIDGE_STATE_ROOT="$WORK_ROOT/bridge-state"
 OPENBRIDGE_LOG="$WORK_ROOT/openbridge.log"
@@ -204,7 +206,7 @@ cat >"$OPENCODE_WORKDIR/opencode.json" <<EOF
 {
   "\$schema": "https://opencode.ai/config.json",
   "provider": {
-    "${BRIDGE_PROVIDER_ID}": {
+    "${BRIDGE_PROVIDER_ALIAS}": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "OpenBridge",
       "options": {
@@ -212,14 +214,14 @@ cat >"$OPENCODE_WORKDIR/opencode.json" <<EOF
         "apiKey": "bridge-ci"
       },
       "models": {
-        "${BRIDGE_MODEL_ID}": {
-          "name": "${BRIDGE_MODEL_ID}"
+        "${BRIDGE_PUBLIC_MODEL_ID}": {
+          "name": "${BRIDGE_PUBLIC_MODEL_ID}"
         }
       }
     }
   },
-  "model": "${BRIDGE_PROVIDER_ID}/${BRIDGE_MODEL_ID}",
-  "small_model": "${BRIDGE_PROVIDER_ID}/${BRIDGE_MODEL_ID}",
+  "model": "${BRIDGE_PROVIDER_ALIAS}/${BRIDGE_PUBLIC_MODEL_ID}",
+  "small_model": "${BRIDGE_PROVIDER_ALIAS}/${BRIDGE_PUBLIC_MODEL_ID}",
   "tools": {
     "edit": false,
     "patch": false,
