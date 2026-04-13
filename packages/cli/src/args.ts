@@ -1,5 +1,3 @@
-import type { BridgeApiToolProfile } from "@uncensoredcode/openbridge/server";
-
 type BridgeCliCommand =
   | {
       kind: "help";
@@ -20,7 +18,6 @@ type BridgeCliCommand =
       provider?: string;
       model?: string;
       metadata?: Record<string, unknown>;
-      toolProfile?: BridgeApiToolProfile;
     };
 type ParseBridgeCliArgsInput = {
   argv: string[];
@@ -79,7 +76,6 @@ function parseBridgeCliArgs(input: ParseBridgeCliArgsInput): BridgeCliCommand {
   const sessionId = requireNonEmptyString(options.session, "session");
   const inputText = readInput(options.input, positionals);
   const metadata = readMetadata(options.metadata);
-  const toolProfile = readToolProfile(options.toolProfile);
   return {
     kind: "send",
     baseUrl: readBaseUrl(options.baseUrl, env),
@@ -87,8 +83,7 @@ function parseBridgeCliArgs(input: ParseBridgeCliArgsInput): BridgeCliCommand {
     input: inputText,
     provider: optionalNonEmptyString(options.provider, "provider") ?? undefined,
     model: optionalNonEmptyString(options.model, "model") ?? undefined,
-    metadata,
-    toolProfile
+    metadata
   };
 }
 function getBridgeCliHelpText() {
@@ -116,8 +111,8 @@ function getBridgeCliHelpText() {
     "  openbridge health",
     "  openbridge providers list",
     "  openbridge providers import-session provider-a --file ./session-package.json",
-    '  openbridge --session demo "Read README.md"',
-    '  openbridge --base-url http://127.0.0.1:4318 --session s1 --input "Run git status"'
+    '  openbridge --session demo "Summarize what this project does."',
+    '  openbridge --base-url http://127.0.0.1:4318 --session s1 --input "Reply with exactly OK."'
   ].join("\n");
 }
 function parseFlags(argv: string[]) {
@@ -179,15 +174,6 @@ function readMetadata(value: string | undefined) {
     throw new Error("metadata must be a JSON object.");
   }
   return parsed as Record<string, unknown>;
-}
-function readToolProfile(value: string | undefined): BridgeApiToolProfile | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === "default" || value === "workspace") {
-    return value;
-  }
-  throw new Error('toolProfile must be either "default" or "workspace".');
 }
 function requireNonEmptyString(value: string | undefined, key: string) {
   const normalized = optionalNonEmptyString(value, key);

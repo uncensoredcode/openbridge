@@ -9,7 +9,6 @@ export const sharedModule = {
 
 export type {
   BridgeApiErrorResponse,
-  BridgeApiToolProfile,
   BridgeChatCompletionMessage,
   BridgeChatCompletionRequest,
   BridgeChatCompletionResponse,

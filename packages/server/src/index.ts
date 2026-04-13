@@ -49,7 +49,6 @@ export type { BridgeApiServerOptions } from "./http/index.ts";
 
 export type {
   BridgeApiErrorResponse,
-  BridgeApiToolProfile,
   BridgeChatCompletionMessage,
   BridgeChatCompletionRequest,
   BridgeChatCompletionResponse,

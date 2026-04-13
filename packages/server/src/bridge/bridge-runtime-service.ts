@@ -15,7 +15,6 @@ import { bridgeRuntime } from "@uncensoredcode/openbridge/runtime";
 
 import type { BridgeServerConfig } from "../config/index.ts";
 import type {
-  BridgeApiToolProfile,
   BridgeChatCompletionRequest,
   BridgeChatCompletionTool,
   BridgeMessageRequest,
@@ -42,13 +41,10 @@ const {
   parseAssistantResponse,
   parseZcPacket,
   serializeAssistantResponse,
-  InProcessToolExecutor,
   normalizeProviderToolName,
   normalizeProviderPacket,
   ProviderFailure,
   SessionBoundProviderAdapter,
-  createDefaultRuntimeTools,
-  createSecondaryRuntimeTools,
   runBridgeRuntime,
   serializeProviderFailure
 } = bridgeRuntime;
@@ -80,7 +76,6 @@ type BridgeRuntimeExecutionRequest = {
   providerId: string;
   modelId: string;
   metadata?: Record<string, unknown>;
-  toolProfile?: BridgeApiToolProfile;
   sessionHistory?: BridgeSessionTurn[];
   persistSession?: boolean;
 };
@@ -149,7 +144,6 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
         providerId: request.providerId,
         modelId: request.modelId,
         metadata: request.metadata,
-        toolProfile: request.toolProfile ?? "default",
         sessionHistory: request.sessionHistory ?? [],
         persistSession: request.persistSession ?? false
       });
@@ -236,7 +230,6 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
         providerId: request.providerId,
         modelId: request.modelId,
         metadata: request.metadata,
-        toolProfile: request.toolProfile ?? "default",
         sessionHistory: request.sessionHistory ?? [],
         persistSession: request.persistSession ?? false
       };
@@ -249,10 +242,6 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
             normalized.providerId,
             normalized.sessionId
           );
-          const toolExecutor = new InProcessToolExecutor({
-            tools: createToolSet(normalized.toolProfile, dependencies.config.runtimeRoot)
-          });
-          const availableTools = await toolExecutor.getAvailableTools();
           const compiled = compileProviderTurn({
             conversation: {
               sessionHistory: normalized.sessionHistory,
@@ -263,7 +252,7 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
                 }
               ]
             },
-            availableTools,
+            availableTools: [],
             runtimePlannerPrimed: providerBindingBefore?.runtimePlannerPrimed === true,
             forceReplay: false
           });
@@ -331,10 +320,6 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
                 model: normalized.modelId
               },
               steps: 1,
-              tools: {
-                used: [],
-                calls: []
-              },
               recovery: {
                 softRetryCount: 0,
                 providerSessionResetCount: 0
@@ -352,7 +337,6 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
       Pick<BridgeRuntimeExecutionRequest, "sessionId" | "input" | "providerId" | "modelId">
     > & {
       metadata?: Record<string, unknown>;
-      toolProfile: BridgeApiToolProfile;
       sessionHistory: BridgeSessionTurn[];
       persistSession: boolean;
     }
@@ -405,14 +389,11 @@ function createBridgeRuntimeService(dependencies: BridgeRuntimeServiceDependenci
         });
       }
     });
-    const toolExecutor = new InProcessToolExecutor({
-      tools: createToolSet(request.toolProfile, dependencies.config.runtimeRoot)
-    });
     const outcome = await runBridgeRuntime({
       userMessage: request.input,
       sessionHistory: request.sessionHistory,
       provider,
-      toolExecutor,
+      availableTools: [],
       config: {
         maxSteps: dependencies.config.maxSteps,
         onEvent(event) {
@@ -632,14 +613,12 @@ function normalizeBridgeRequest(
     });
   }
   const metadata = normalizeMetadata(request.metadata);
-  const toolProfile = normalizeToolProfile(request.toolProfile);
   return {
     sessionId,
     input,
     providerId,
     modelId,
-    metadata,
-    toolProfile
+    metadata
   };
 }
 function resolveInput(request: BridgeMessageRequest) {
@@ -675,26 +654,6 @@ function normalizeMetadata(value: BridgeMessageRequest["metadata"]) {
     message: "metadata must be a JSON object."
   });
 }
-function normalizeToolProfile(value: BridgeMessageRequest["toolProfile"]): BridgeApiToolProfile {
-  if (value === undefined) {
-    return "default";
-  }
-  if (value === "default" || value === "workspace") {
-    return value;
-  }
-  throw new BridgeApiError({
-    statusCode: 400,
-    code: "invalid_request",
-    message: 'toolProfile must be either "default" or "workspace".'
-  });
-}
-function createToolSet(toolProfile: BridgeApiToolProfile, runtimeRoot: string) {
-  const defaultTools = createDefaultRuntimeTools(runtimeRoot);
-  if (toolProfile !== "workspace") {
-    return defaultTools;
-  }
-  return [...defaultTools, ...createSecondaryRuntimeTools(runtimeRoot)];
-}
 function classifyRuntimeFailure(
   sessionId: string,
   providerId: string,
@@ -702,13 +661,6 @@ function classifyRuntimeFailure(
   outcome: RuntimeOutcome,
   recoverySummary: RequestRecoverySummary
 ) {
-  const toolCalls = outcome.conversation.entries
-    .filter((entry) => entry.type === "tool_result")
-    .map((entry) => ({
-      id: entry.result.id,
-      name: entry.result.name,
-      ok: entry.result.ok
-    }));
   const details = {
     sessionId,
     provider: {
@@ -716,10 +668,6 @@ function classifyRuntimeFailure(
       model: modelId
     },
     steps: outcome.steps,
-    tools: {
-      used: [...new Set(toolCalls.map((call) => call.name))],
-      calls: toolCalls
-    },
     recovery: recoverySummary
   };
   if (outcome.failure?.source === "provider") {
@@ -753,14 +701,6 @@ function classifyRuntimeFailure(
       }
     });
   }
-  if (toolCalls.some((call) => call.ok === false)) {
-    return new BridgeApiError({
-      statusCode: 502,
-      code: "tool_failure",
-      message: outcome.message,
-      details
-    });
-  }
   return new BridgeApiError({
     statusCode: 502,
     code: "runtime_failure",
@@ -780,15 +720,6 @@ function buildBridgeMessageResponse(
   recoverySummary: RequestRecoverySummary
 ): BridgeMessageResponse {
   const sanitized = sanitizeBridgeApiOutput(outcome.message);
-  const toolCalls = outcome.conversation.entries
-    .filter((entry) => entry.type === "tool_result")
-    .map((entry) => ({
-      id: entry.result.id,
-      name: entry.result.name,
-      ok: entry.result.ok,
-      payload: entry.result.payload
-    }));
-  const lastSuccessfulCall = [...toolCalls].reverse().find((call) => call.ok);
   return {
     sessionId: request.sessionId,
     output: sanitized.content,
@@ -802,21 +733,6 @@ function buildBridgeMessageResponse(
     },
     session: {
       providerBindingReused
-    },
-    tools: {
-      used: [...new Set(toolCalls.map((call) => call.name))],
-      calls: toolCalls.map((call) => ({
-        id: call.id,
-        name: call.name,
-        ok: call.ok
-      })),
-      lastSuccessfulCall: lastSuccessfulCall
-        ? {
-            id: lastSuccessfulCall.id,
-            name: lastSuccessfulCall.name,
-            payload: lastSuccessfulCall.payload
-          }
-        : undefined
     },
     meta: {
       outputSanitized: sanitized.sanitized,
@@ -1528,19 +1444,6 @@ function summarizeRuntimeEvent(event: Record<string, unknown>) {
         durationMs: event.durationMs,
         rawTextLength: typeof event.rawText === "string" ? event.rawText.length : 0
       };
-    case "tool_result": {
-      const result = asRecord(event.result);
-      return {
-        type,
-        step: event.step,
-        durationMs: event.durationMs,
-        tool: {
-          id: result.id,
-          name: result.name,
-          ok: result.ok
-        }
-      };
-    }
     case "packet_parsed":
       return {
         type,

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -120,10 +120,6 @@ test("valid request returns a normalized generic response", async () => {
       },
       session: {
         providerBindingReused: false
-      },
-      tools: {
-        used: [],
-        calls: []
       },
       meta: {
         outputSanitized: false,
@@ -349,181 +345,6 @@ test("client reset semantics are achieved by choosing a new sessionId", async ()
     });
     assert.equal(reused.body.session.providerBindingReused, true);
     assert.equal(fresh.body.session.providerBindingReused, false);
-  } finally {
-    await close();
-  }
-});
-test("API invokes the read tool through the normal runtime flow", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-read-"));
-  await writeFile(path.join(runtimeRoot, "notes.txt"), "bridge runtime note", "utf8");
-  const transport = new ScriptedTransport((request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_read",
-          name: "read",
-          args: {
-            path: "notes.txt"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-read",
-          parentId: "resp-1"
-        }
-      };
-    }
-    assert.match(request.messages.at(-1)?.content ?? "", /bridge runtime note/);
-    return {
-      content: createMessagePacket("final", "Read complete."),
-      upstreamBinding: {
-        conversationId: "conv-read",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startTestServer(transport, runtimeRoot);
-  try {
-    const response = await postJson(`${baseUrl}/v1/sessions/read-session/messages`, {
-      input: "Read the file"
-    });
-    assert.equal(response.status, 200);
-    assert.equal(response.body.output, "Read complete.");
-    assert.deepEqual(response.body.tools.used, ["read"]);
-    assert.deepEqual(response.body.tools.calls, [
-      {
-        id: "call_read",
-        name: "read",
-        ok: true
-      }
-    ]);
-  } finally {
-    await close();
-  }
-});
-test("API invokes the write tool through the normal runtime flow", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-write-"));
-  const targetPath = path.join(runtimeRoot, "created.txt");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_write",
-          name: "write",
-          args: {
-            path: "created.txt",
-            content: "created by bridge"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-write",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Write complete."),
-      upstreamBinding: {
-        conversationId: "conv-write",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startTestServer(transport, runtimeRoot);
-  try {
-    const response = await postJson(`${baseUrl}/v1/sessions/write-session/messages`, {
-      input: "Create the file"
-    });
-    assert.equal(response.status, 200);
-    assert.equal(await readFile(targetPath, "utf8"), "created by bridge");
-    assert.deepEqual(response.body.tools.used, ["write"]);
-    assert.deepEqual(response.body.tools.calls, [
-      {
-        id: "call_write",
-        name: "write",
-        ok: true
-      }
-    ]);
-  } finally {
-    await close();
-  }
-});
-test("API invokes the edit tool through the normal runtime flow", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-edit-"));
-  const targetPath = path.join(runtimeRoot, "edit.txt");
-  await writeFile(targetPath, "before value", "utf8");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_edit",
-          name: "edit",
-          args: {
-            path: "edit.txt",
-            oldText: "before",
-            newText: "after"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-edit",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Edit complete."),
-      upstreamBinding: {
-        conversationId: "conv-edit",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startTestServer(transport, runtimeRoot);
-  try {
-    const response = await postJson(`${baseUrl}/v1/sessions/edit-session/messages`, {
-      input: "Edit the file"
-    });
-    assert.equal(response.status, 200);
-    assert.equal(await readFile(targetPath, "utf8"), "after value");
-    assert.deepEqual(response.body.tools.used, ["edit"]);
-  } finally {
-    await close();
-  }
-});
-test("API invokes the bash tool through the normal runtime flow", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-server-bash-"));
-  const markerPath = path.join(runtimeRoot, "bash-marker.txt");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_bash",
-          name: "bash",
-          args: {
-            command: `printf 'bash ok' > '${markerPath}'`
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-bash",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Bash complete."),
-      upstreamBinding: {
-        conversationId: "conv-bash",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startTestServer(transport, runtimeRoot);
-  try {
-    const response = await postJson(`${baseUrl}/v1/sessions/bash-session/messages`, {
-      input: "Run the shell command"
-    });
-    assert.equal(response.status, 200);
-    assert.equal(await readFile(markerPath, "utf8"), "bash ok");
-    assert.deepEqual(response.body.tools.used, ["bash"]);
   } finally {
     await close();
   }
@@ -806,7 +627,7 @@ test("service emits repair lifecycle logs and request summary for a valid repair
       }
     };
   });
-  const { baseUrl, close } = await startTestServer(transport, undefined, {
+  const { baseUrl, close } = await startTestServer(transport, {
     onLog(event) {
       logs.push(event);
     }
@@ -874,7 +695,7 @@ test("service emits repair_failed and request summary when repair output is stil
   const transport = new ScriptedTransport((request) => ({
     content: request.lane === "main" ? "answer directly please" : "still invalid"
   }));
-  const { baseUrl, close } = await startTestServer(transport, undefined, {
+  const { baseUrl, close } = await startTestServer(transport, {
     onLog(event) {
       logs.push(event);
     }
@@ -922,7 +743,7 @@ test("service emits provider_repair_failed and provider_failure repair summary w
     }
     throw new Error("repair transport failed");
   });
-  const { baseUrl, close } = await startTestServer(transport, undefined, {
+  const { baseUrl, close } = await startTestServer(transport, {
     onLog(event) {
       logs.push(event);
     }
@@ -960,7 +781,7 @@ test("service emits provider_repair_failed and provider_failure repair summary w
     await close();
   }
 });
-test("tool failures that end the runtime return a structured error response", async () => {
+test("default mode rejects bridge-owned tool execution requests", async () => {
   const transport = new ScriptedTransport((_request, callIndex) => {
     if (callIndex === 1) {
       return {
@@ -991,25 +812,20 @@ test("tool failures that end the runtime return a structured error response", as
     assert.equal(response.status, 502);
     assert.deepEqual(response.body, {
       error: {
-        code: "tool_failure",
-        message: "Unable to continue after the tool failure.",
+        code: "provider_protocol_failure",
+        message:
+          'Provider requested tool "missing_tool" but this bridge flow does not execute tools.',
         details: {
           sessionId: "tool-failure",
           provider: {
             id: "session-sse",
             model: "model-alpha"
           },
-          steps: 2,
+          steps: 1,
           recovery: createExpectedRecoverySummary(),
-          tools: {
-            used: ["missing_tool"],
-            calls: [
-              {
-                id: "call_missing",
-                name: "missing_tool",
-                ok: false
-              }
-            ]
+          failure: {
+            source: "protocol",
+            code: "unsupported_tool_request"
           }
         }
       }
@@ -1020,17 +836,15 @@ test("tool failures that end the runtime return a structured error response", as
 });
 async function startTestServer(
   transport: ProviderTransport,
-  runtimeRoot?: string,
   options?: {
     onLog?: (event: BridgeRuntimeServiceLogEvent) => void;
   }
 ) {
-  const tempRoot = runtimeRoot ?? (await mkdtemp(path.join(os.tmpdir(), "bridge-server-runtime-")));
   const config = {
     host: "127.0.0.1",
     port: 0,
     stateRoot: await mkdtemp(path.join(os.tmpdir(), "bridge-server-state-")),
-    runtimeRoot: tempRoot,
+    runtimeRoot: await mkdtemp(path.join(os.tmpdir(), "bridge-server-runtime-")),
     defaultProvider: "session-sse",
     defaultModel: "model-alpha",
     maxSteps: 8
