@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -17,7 +17,7 @@ import { bridgeServer } from "@uncensoredcode/openbridge/server";
 import { bridgeCli } from "../src/index.ts";
 
 const { createBridgeApiServer, createBridgeRuntimeService } = bridgeServer;
-const { createMessagePacket, createToolRequestPacket } = bridgeRuntime;
+const { createMessagePacket } = bridgeRuntime;
 const { getBridgeCliHelpText, parseBridgeCliArgs, runBridgeCli } = bridgeCli;
 type RunBridgeServerCliInput = Parameters<typeof bridgeServer.runBridgeServerCli>[0];
 class ScriptedTransport implements ProviderTransport {
@@ -53,8 +53,7 @@ test("argument parser accepts session, positional input, and base URL", () => {
     input: "Read package.json",
     provider: undefined,
     model: undefined,
-    metadata: undefined,
-    toolProfile: undefined
+    metadata: undefined
   });
 });
 test("argument parser forwards server subcommands to the server CLI", () => {
@@ -286,171 +285,6 @@ test("CLI isolates different session ids", async () => {
     await close();
   }
 });
-test("CLI can drive the read flow end to end through the standalone API", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-cli-read-"));
-  await writeFile(path.join(runtimeRoot, "notes.txt"), "cli read note", "utf8");
-  const transport = new ScriptedTransport((request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_read",
-          name: "read",
-          args: {
-            path: "notes.txt"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-read",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Read complete."),
-      upstreamBinding: {
-        conversationId: "conv-read",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startBridgeApiServer(transport, runtimeRoot);
-  const output = captureStream();
-  try {
-    const exitCode = await runBridgeCli({
-      argv: ["--base-url", baseUrl, "--session", "read-session", "Read the file"],
-      stdout: output,
-      stderr: captureStream()
-    });
-    assert.equal(exitCode, 0);
-    assert.equal(output.text, "Read complete.\n");
-  } finally {
-    await close();
-  }
-});
-test("CLI can drive the write flow end to end through the standalone API", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-cli-write-"));
-  const targetPath = path.join(runtimeRoot, "created.txt");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_write",
-          name: "write",
-          args: {
-            path: "created.txt",
-            content: "created by cli"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-write",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Write complete."),
-      upstreamBinding: {
-        conversationId: "conv-write",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startBridgeApiServer(transport, runtimeRoot);
-  try {
-    const exitCode = await runBridgeCli({
-      argv: ["--base-url", baseUrl, "--session", "write-session", "Create the file"],
-      stdout: captureStream(),
-      stderr: captureStream()
-    });
-    assert.equal(exitCode, 0);
-    assert.equal(await readFile(targetPath, "utf8"), "created by cli");
-  } finally {
-    await close();
-  }
-});
-test("CLI can drive the edit flow end to end through the standalone API", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-cli-edit-"));
-  const targetPath = path.join(runtimeRoot, "edit.txt");
-  await writeFile(targetPath, "before value", "utf8");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_edit",
-          name: "edit",
-          args: {
-            path: "edit.txt",
-            oldText: "before",
-            newText: "after"
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-edit",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Edit complete."),
-      upstreamBinding: {
-        conversationId: "conv-edit",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startBridgeApiServer(transport, runtimeRoot);
-  try {
-    const exitCode = await runBridgeCli({
-      argv: ["--base-url", baseUrl, "--session", "edit-session", "Edit the file"],
-      stdout: captureStream(),
-      stderr: captureStream()
-    });
-    assert.equal(exitCode, 0);
-    assert.equal(await readFile(targetPath, "utf8"), "after value");
-  } finally {
-    await close();
-  }
-});
-test("CLI can drive the bash flow end to end through the standalone API", async () => {
-  const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), "bridge-cli-bash-"));
-  const targetPath = path.join(runtimeRoot, "bash.txt");
-  const transport = new ScriptedTransport((_request, callIndex) => {
-    if (callIndex === 1) {
-      return {
-        content: createToolRequestPacket({
-          id: "call_bash",
-          name: "bash",
-          args: {
-            command: `printf 'cli bash' > '${targetPath}'`
-          }
-        }),
-        upstreamBinding: {
-          conversationId: "conv-bash",
-          parentId: "resp-1"
-        }
-      };
-    }
-    return {
-      content: createMessagePacket("final", "Bash complete."),
-      upstreamBinding: {
-        conversationId: "conv-bash",
-        parentId: "resp-2"
-      }
-    };
-  });
-  const { baseUrl, close } = await startBridgeApiServer(transport, runtimeRoot);
-  try {
-    const exitCode = await runBridgeCli({
-      argv: ["--base-url", baseUrl, "--session", "bash-session", "Run bash"],
-      stdout: captureStream(),
-      stderr: captureStream()
-    });
-    assert.equal(exitCode, 0);
-    assert.equal(await readFile(targetPath, "utf8"), "cli bash");
-  } finally {
-    await close();
-  }
-});
 function captureStream() {
   let text = "";
   return {
@@ -462,12 +296,12 @@ function captureStream() {
     }
   };
 }
-async function startBridgeApiServer(transport: ProviderTransport, runtimeRoot?: string) {
+async function startBridgeApiServer(transport: ProviderTransport) {
   const config = {
     host: "127.0.0.1",
     port: 0,
     stateRoot: await mkdtemp(path.join(os.tmpdir(), "bridge-cli-state-")),
-    runtimeRoot: runtimeRoot ?? (await mkdtemp(path.join(os.tmpdir(), "bridge-cli-runtime-"))),
+    runtimeRoot: await mkdtemp(path.join(os.tmpdir(), "bridge-cli-runtime-")),
     defaultProvider: "session-sse",
     defaultModel: "model-alpha",
     maxSteps: 8

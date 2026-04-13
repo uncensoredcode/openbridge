@@ -52,7 +52,7 @@ That list should be read as "known working surfaces we have evidence for", not a
 
 - `@uncensoredcode/openbridge`: default server export.
 - `@uncensoredcode/openbridge/server`: Fastify HTTP API, provider/session-package storage, session vault, and standalone bridge server.
-- `@uncensoredcode/openbridge/runtime`: provider turn compilation, packet handling, tool execution, and runtime helpers.
+- `@uncensoredcode/openbridge/runtime`: provider turn compilation, packet handling, legacy execution support, and runtime helpers.
 - `@uncensoredcode/openbridge/cli`: unified `openbridge` CLI for server control, health checks, and sending prompts to a running bridge server.
 
 ## Quick Start
@@ -92,7 +92,7 @@ openbridge health
 Send a prompt through a bridge session:
 
 ```bash
-openbridge --session demo "Read README.md"
+openbridge --session demo "Summarize what this project does."
 ```
 
 Use the OpenAI-compatible endpoint directly:

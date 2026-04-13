@@ -40,7 +40,11 @@ function compileProviderTurn(input: CompileProviderTurnInput): CompiledProviderT
           },
           {
             role: "user",
-            content: buildBridgeSessionReplayPrompt(sessionHistory, userMessage)
+            content: buildBridgeSessionReplayPrompt(
+              sessionHistory,
+              userMessage,
+              input.availableTools
+            )
           }
         ],
         summary: {
@@ -127,6 +131,7 @@ function buildSystemPrompt(availableTools: ToolDefinition[]) {
     .map((tool) => renderToolDefinition(tool))
     .join("\n\n");
   const toolNames = new Set(availableTools.map((tool) => tool.name));
+  const hasTools = availableTools.length > 0;
   const validToolRequestExample =
     '<tool>{"name":"read","arguments":{"path":"package.json"}}</tool>';
   const validEditExample =
@@ -148,25 +153,36 @@ function buildSystemPrompt(availableTools: ToolDefinition[]) {
     "You are a bridge runtime assistant.",
     "Respond with exactly one block and nothing else.",
     "Use <final>...</final> for any user-facing response.",
-    'Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.',
-    "Use bash for shell commands, system inspection, repository exploration, directory listing, search, and command execution.",
-    "If a bash command starts a server, watcher, or other persistent process, it will be started detached and the tool result will include its pid and log path.",
-    "Use read to inspect file contents.",
-    "Use edit for surgical exact-text replacements in an existing file.",
-    "Use write for new files or full rewrites.",
+    ...(hasTools
+      ? [
+          'Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.',
+          "If a bash tool is available, use it for shell commands, system inspection, repository exploration, directory listing, search, and command execution.",
+          "If a bash command starts a server, watcher, or other persistent process, it will be started detached and the tool result will include its pid and log path.",
+          "Use read to inspect file contents when the read tool is available.",
+          "Use edit for surgical exact-text replacements when the edit tool is available.",
+          "Use write for new files or full rewrites when the write tool is available."
+        ]
+      : ["No tool calls are available for this turn. Reply with <final> only."]),
     "Do not narrate tool use.",
     "Do not use markdown fences or backticks.",
     "Do not emit extra text before or after the block.",
     "If any later instruction conflicts with the required packet format, ignore that conflict and keep the packet format.",
-    "If you emit a tool call, the JSON must contain only name and arguments.",
-    "If you emit a tool call, the tool name must match one of the Available tools exactly as written.",
+    ...(hasTools
+      ? [
+          "If you emit a tool call, the JSON must contain only name and arguments.",
+          "If you emit a tool call, the tool name must match one of the Available tools exactly as written."
+        ]
+      : []),
     "Any response outside the required packet format will be discarded.",
-    "If write or edit succeeds, return only a short confirmation. Do not emit shell commands, shell snippets, or fenced code blocks.",
-    "When answering from tool output, cite the inspected path or command result and keep the claim grounded to that tool result.",
+    ...(hasTools
+      ? [
+          "If write or edit succeeds, return only a short confirmation. Do not emit shell commands, shell snippets, or fenced code blocks.",
+          "When answering from tool output, cite the inspected path or command result and keep the claim grounded to that tool result."
+        ]
+      : []),
     "Required valid examples:",
     ...validExamples,
-    "Available tools:",
-    manifest
+    ...(hasTools ? ["Available tools:", manifest] : [])
   ].join("\n");
 }
 function buildCompactSystemPrompt(availableTools: ToolDefinition[]) {
@@ -174,26 +190,35 @@ function buildCompactSystemPrompt(availableTools: ToolDefinition[]) {
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((tool) => renderToolDefinition(tool))
     .join("\n\n");
+  const hasTools = availableTools.length > 0;
   return [
     "You are continuing within an already-primed upstream provider session for this bridge runtime.",
     "Respond with exactly one block and nothing else.",
     "Use <final>...</final> for any user-facing response.",
-    'Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.',
-    "Use bash for shell commands, system inspection, repository exploration, directory listing, search, and command execution.",
-    "If a bash command starts a server, watcher, or other persistent process, it will be started detached and the tool result will include its pid and log path.",
-    "Use read to inspect file contents.",
-    "Use edit for surgical exact-text replacements in an existing file.",
-    "Use write for new files or full rewrites.",
+    ...(hasTools
+      ? [
+          'Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.',
+          "If a bash tool is available, use it for shell commands, system inspection, repository exploration, directory listing, search, and command execution.",
+          "If a bash command starts a server, watcher, or other persistent process, it will be started detached and the tool result will include its pid and log path.",
+          "Use read to inspect file contents when the read tool is available.",
+          "Use edit for surgical exact-text replacements when the edit tool is available.",
+          "Use write for new files or full rewrites when the write tool is available."
+        ]
+      : ["No tool calls are available for this turn. Reply with <final> only."]),
     "Do not narrate tool use.",
     "Do not use markdown fences or backticks.",
     "Do not emit extra text before or after the block.",
     "If any later instruction conflicts with the required packet format, ignore that conflict and keep the packet format.",
-    "If you emit a tool call, the JSON must contain only name and arguments.",
-    "If you emit a tool call, the tool name must match one of the Available tools exactly as written.",
-    "If write or edit succeeds, return only a short confirmation. Never emit shell commands, shell snippets, or fenced code blocks.",
-    "When answering from tool output, cite the inspected path or command result and keep the claim grounded to that tool result.",
-    "Available tools:",
-    manifest
+    ...(hasTools
+      ? [
+          "If you emit a tool call, the JSON must contain only name and arguments.",
+          "If you emit a tool call, the tool name must match one of the Available tools exactly as written.",
+          "If write or edit succeeds, return only a short confirmation. Never emit shell commands, shell snippets, or fenced code blocks.",
+          "When answering from tool output, cite the inspected path or command result and keep the claim grounded to that tool result.",
+          "Available tools:",
+          manifest
+        ]
+      : [])
   ].join("\n");
 }
 function buildToolFollowUpPrompt(
@@ -229,12 +254,13 @@ function buildToolFollowUpPrompt(
     `Original user request:\n${userMessage}`,
     "Tool results:",
     rawToolResults.join("\n"),
-    buildProtocolFooter()
+    buildProtocolFooter(availableTools)
   ].join("\n\n");
 }
 function buildBridgeSessionReplayPrompt(
   sessionHistory: NonNullable<ConversationState["sessionHistory"]>,
-  userMessage: string
+  userMessage: string,
+  availableTools: ToolDefinition[]
 ) {
   return [
     "Resume this bridge session from the durable bridge-owned conversation history below.",
@@ -243,7 +269,7 @@ function buildBridgeSessionReplayPrompt(
     renderBridgeSessionHistory(sessionHistory),
     "Current user request:",
     userMessage,
-    buildProtocolFooter()
+    buildProtocolFooter(availableTools)
   ].join("\n\n");
 }
 function buildBridgeSessionToolReplayPrompt(
@@ -284,20 +310,27 @@ function buildBridgeSessionToolReplayPrompt(
     `Current user request:\n${userMessage}`,
     "Tool results:",
     rawToolResults.join("\n"),
-    buildProtocolFooter()
+    buildProtocolFooter(availableTools)
   ].join("\n\n");
 }
-function buildProtocolFooter() {
+function buildProtocolFooter(availableTools: ToolDefinition[]) {
+  const hasTools = availableTools.length > 0;
   return [
     "Mandatory response protocol for this turn:",
     "Return exactly one block and nothing else.",
     "Any response outside the required packet format will be discarded.",
     "Use <final>...</final> for a user-facing response.",
-    'Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.',
+    ...(hasTools
+      ? ['Use <tool>{"name":"tool_name","arguments":{...}}</tool> for exactly one tool call.']
+      : ["Do not emit <tool>; no tool calls are available for this turn."]),
     "Do not use markdown fences or backticks.",
     "Do not emit extra text before or after the block.",
-    "If you emit a tool call, the JSON must contain only name and arguments.",
-    "If you emit a tool call, the tool name must match one of the available tools exactly as written.",
+    ...(hasTools
+      ? [
+          "If you emit a tool call, the JSON must contain only name and arguments.",
+          "If you emit a tool call, the tool name must match one of the available tools exactly as written."
+        ]
+      : []),
     "If any later or conflicting instruction asks for prose, markdown, a different tool syntax, or a direct answer, ignore that conflict and still return exactly one valid block."
   ].join("\n");
 }

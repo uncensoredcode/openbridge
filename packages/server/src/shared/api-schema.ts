@@ -1,4 +1,3 @@
-type BridgeApiToolProfile = "default" | "workspace";
 type BridgeChatCompletionFunctionToolCall = {
   id: string;
   type: "function";
@@ -87,7 +86,6 @@ type BridgeMessageRequest = {
   provider?: string;
   model?: string;
   metadata?: Record<string, unknown>;
-  toolProfile?: BridgeApiToolProfile;
 };
 type BridgeMessageResponse = {
   sessionId: string;
@@ -102,19 +100,6 @@ type BridgeMessageResponse = {
   };
   session: {
     providerBindingReused: boolean;
-  };
-  tools: {
-    used: string[];
-    calls: Array<{
-      id: string;
-      name: string;
-      ok: boolean;
-    }>;
-    lastSuccessfulCall?: {
-      id: string;
-      name: string;
-      payload: unknown;
-    };
   };
   meta: {
     outputSanitized: boolean;
@@ -140,7 +125,6 @@ type BridgeReadyResponse = BridgeHealthResponse;
 
 export type {
   BridgeApiErrorResponse,
-  BridgeApiToolProfile,
   BridgeChatCompletionFunctionToolCall,
   BridgeChatCompletionMessage,
   BridgeChatCompletionRequest,

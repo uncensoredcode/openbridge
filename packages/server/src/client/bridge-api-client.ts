@@ -112,8 +112,7 @@ async function sendBridgeMessage(input: SendBridgeMessageInput): Promise<BridgeM
         message: input.message,
         provider: input.provider,
         model: input.model,
-        metadata: input.metadata,
-        toolProfile: input.toolProfile
+        metadata: input.metadata
       } satisfies BridgeMessageRequest),
       signal: input.signal
     }
