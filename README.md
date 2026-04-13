@@ -9,6 +9,10 @@ Turn browser-authenticated AI chat products into an OpenAI-compatible API for ag
 
 This is not a chatbot wrapper. It is an adapter layer between polished consumer chat apps and agent-ready infrastructure.
 
+Live site built using OpenBridge:
+
+[uncensoredcode.vercel.app](https://uncensoredcode.vercel.app/)
+
 ## Why OpenBridge
 
 - Reuse authenticated browser sessions instead of managing separate API keys.
