@@ -75,7 +75,6 @@ async function runBridgeCli(dependencies: BridgeCliDependencies): Promise<number
       provider: command.provider,
       model: command.model,
       metadata: command.metadata,
-      toolProfile: command.toolProfile,
       fetchImpl: dependencies.fetchImpl
     });
     stdout.write(`${response.output}\n`);

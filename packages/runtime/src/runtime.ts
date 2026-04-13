@@ -1,9 +1,9 @@
 import type { AssistantResponse } from "./assistant-protocol.ts";
 import { assistantProtocolModule } from "./assistant-protocol.ts";
-import type { ExecutionRequest, ToolDefinition, ToolExecutor } from "./execution/types.ts";
+import type { ToolDefinition } from "./execution/types.ts";
 import { packetExtractorModule } from "./packet-extractor.ts";
 import { packetNormalizerModule } from "./packet-normalizer.ts";
-import type { ToolResult, ZcPacket } from "./protocol.ts";
+import type { ZcPacket } from "./protocol.ts";
 import { protocolModule } from "./protocol.ts";
 import type {
   BridgeSessionTurn,
@@ -17,7 +17,7 @@ import { toolNameAliasesModule } from "./tool-name-aliases.ts";
 const { parseAssistantResponse, validateAssistantResponse } = assistantProtocolModule;
 const { extractPacketCandidate } = packetExtractorModule;
 const { normalizeProviderPacket } = packetNormalizerModule;
-const { parseZcPacket, serializeToolResult } = protocolModule;
+const { parseZcPacket } = protocolModule;
 const { normalizeProviderToolName } = toolNameAliasesModule;
 const {
   formatProviderFailureMessage,
@@ -44,7 +44,7 @@ type RuntimeFailure =
     }
   | {
       source: "protocol";
-      code: "malformed_provider_packet";
+      code: "malformed_provider_packet" | "unsupported_tool_request";
       message: string;
     }
   | {
@@ -87,13 +87,6 @@ type RuntimeEvent =
       };
     }
   | {
-      type: "tool_result";
-      step: number;
-      rawText: string;
-      result: ToolResult;
-      durationMs: number;
-    }
-  | {
       type: "packet_parsed";
       step: number;
       mode: "final" | "tool" | "ask_user" | "fail";
@@ -111,7 +104,7 @@ type RunRuntimeInput = {
   userMessage: string;
   sessionHistory?: BridgeSessionTurn[];
   provider: ProviderAdapter;
-  toolExecutor: ToolExecutor;
+  availableTools?: ToolDefinition[];
   config?: RuntimeConfig;
 };
 const DEFAULT_MAX_STEPS = 8;
@@ -127,7 +120,7 @@ async function runBridgeRuntime(input: RunRuntimeInput): Promise<RuntimeOutcome>
       }
     ]
   };
-  const availableTools = await input.toolExecutor.getAvailableTools();
+  const availableTools = input.availableTools ?? [];
   for (let step = 1; step <= maxSteps; step += 1) {
     let rawText: string;
     const providerStartedAt = Date.now();
@@ -314,30 +307,20 @@ async function runBridgeRuntime(input: RunRuntimeInput): Promise<RuntimeOutcome>
             name: response.toolCall.name,
             args: response.toolCall.arguments
           };
-      const toolStartedAt = Date.now();
-      const execution = await input.toolExecutor.executeTool({
-        call: toolCall
-      } satisfies ExecutionRequest);
-      const toolResult: ToolResult = {
-        id: toolCall.id,
-        name: toolCall.name,
-        ok: execution.ok,
-        payload: execution.payload
-      };
-      const serializedToolResult = serializeToolResult(toolResult);
-      conversation.entries.push({
-        type: "tool_result",
-        rawText: serializedToolResult,
-        result: toolResult
-      });
-      input.config?.onEvent?.({
-        type: "tool_result",
-        step,
-        rawText: serializedToolResult,
-        result: toolResult,
-        durationMs: Date.now() - toolStartedAt
-      });
-      continue;
+      return emitOutcome(
+        {
+          mode: "fail",
+          message: `Provider requested tool "${toolCall.name}" but this bridge flow does not execute tools.`,
+          steps: step,
+          conversation,
+          failure: {
+            source: "protocol",
+            code: "unsupported_tool_request",
+            message: `Provider requested tool "${toolCall.name}" but this bridge flow does not execute tools.`
+          }
+        },
+        input.config
+      );
     }
     switch (getParsedResponseMode(response)) {
       case "final":
