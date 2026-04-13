@@ -2,7 +2,19 @@ name: Prepublish LLM Smoke
 
 on:
   workflow_call:
+    inputs:
+      models:
+        description: Optional comma-separated labels to test
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
+    inputs:
+      models:
+        description: Optional comma-separated labels to test
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -13,7 +25,28 @@ env:
   OPENCODE_VERSION: 1.4.3
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      models: ${{ steps.normalize.outputs.models }}
+
+    steps:
+      - name: Normalize model filter
+        id: normalize
+        env:
+          RAW_MODELS: ${{ inputs.models }}
+        run: |
+          NORMALIZED_MODELS=$(printf '%s' "$RAW_MODELS" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+          echo "models=$NORMALIZED_MODELS" >>"$GITHUB_OUTPUT"
+
   smoke:
+    needs:
+      - prepare
+    if: >-
+      ${{
+        needs.prepare.outputs.models == '' ||
+        contains(format(',{0},', needs.prepare.outputs.models), format(',{0},', matrix.label))
+      }}
     name: smoke / ${{ matrix.label }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

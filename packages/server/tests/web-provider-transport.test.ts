@@ -586,6 +586,93 @@ test("generic http-sse transport falls back to the current DeepSeek bootstrap co
     globalThis.fetch = originalFetch;
   }
 });
+test("generic http-sse transport accepts nested DeepSeek bootstrap conversation id shapes", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input) => {
+    const url = String(input);
+    if (url === "https://example.test/conversations") {
+      return jsonResponse({
+        data: {
+          biz_data: {
+            chat_session: {
+              id: "conversation-deepseek-bootstrap-nested"
+            }
+          }
+        }
+      });
+    }
+    if (
+      url === "https://example.test/messages?conversation_id=conversation-deepseek-bootstrap-nested"
+    ) {
+      return {
+        ok: true,
+        status: 200,
+        body: createReadableStream(
+          'data: {"response":{"id":"resp-deepseek-bootstrap-nested"},"choices":[{"delta":{"content":"<final>OK</final>"}}]}\n'
+        ),
+        headers: new Headers({ "content-type": "text/event-stream" }),
+        async text() {
+          return "";
+        }
+      } as Response;
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  }) as typeof fetch;
+  try {
+    const transport = new WebProviderTransport({
+      providerSessionResolver: {
+        rootDir: "/tmp",
+        async loadProviderSession() {
+          return {
+            providerId: "provider-a",
+            cookie: "session=secret",
+            userAgent: "Mozilla/5.0",
+            updatedAt: new Date(0).toISOString()
+          };
+        }
+      },
+      loadProvider() {
+        return {
+          ...createSseProviderRecord(),
+          config: {
+            transport: {
+              ...createSseProviderRecord().config.transport,
+              bootstrap: {
+                ...createSseProviderRecord().config.transport.bootstrap,
+                conversationIdPath: "data.biz_data.id"
+              }
+            }
+          }
+        };
+      }
+    });
+    const response = await transport.completeChat({
+      lane: "main",
+      providerId: "provider-a",
+      modelId: "deepseek-chat",
+      sessionId: "bridge-session",
+      requestId: "request-deepseek-bootstrap-nested",
+      attempt: 1,
+      continuation: false,
+      toolFollowUp: false,
+      providerSessionReused: false,
+      upstreamBinding: null,
+      messages: [
+        {
+          role: "user",
+          content: "Hello?"
+        }
+      ]
+    });
+    assert.equal(response.content, "<final>OK</final>");
+    assert.deepEqual(response.upstreamBinding, {
+      conversationId: "conversation-deepseek-bootstrap-nested",
+      parentId: "resp-deepseek-bootstrap-nested"
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test("generic http-sse transport can render a null parent id for the first bootstrapped turn", async () => {
   const calls: Array<{
     url: string;

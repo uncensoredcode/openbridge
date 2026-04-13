@@ -953,13 +953,27 @@ function extractFirstString(payload: unknown, path: string) {
 }
 function extractBootstrapConversationId(payload: unknown, configuredPath: string) {
   const candidates = [configuredPath];
+  if (configuredPath.endsWith(".id")) {
+    candidates.push(configuredPath.replace(/\.id$/, ".chat_session.id"));
+    candidates.push(configuredPath.replace(/\.id$/, ".chat_session_id"));
+  }
   if (configuredPath.endsWith(".chat_session.id")) {
     candidates.push(configuredPath.replace(/\.chat_session\.id$/, ".id"));
   }
   if (configuredPath.endsWith(".chat_session_id")) {
     candidates.push(configuredPath.replace(/\.chat_session_id$/, ".id"));
   }
-  for (const path of ["data.biz_data.id", "data.id", "id"]) {
+  for (const path of [
+    "data.biz_data.chat_session.id",
+    "data.biz_data.chat_session_id",
+    "data.biz_data.id",
+    "data.chat_session.id",
+    "data.chat_session_id",
+    "data.id",
+    "chat_session.id",
+    "chat_session_id",
+    "id"
+  ]) {
     if (!candidates.includes(path)) {
       candidates.push(path);
     }
