@@ -1,30 +1,21 @@
-# uncensoredcode // openbridge
+# OpenBridge
 
-Turn a glossy web-chat LLM into an agent-ready, tool-calling model.
+[![npm version](https://img.shields.io/npm/v/%40uncensoredcode%2Fopenbridge)](https://www.npmjs.com/package/@uncensoredcode/openbridge)
+![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)
 
-`openbridge` reuses authenticated browser chat sessions and exposes them through an OpenAI-compatible API so agents like `opencode`, `pi`, `OpenClaw`, `Hermes`, and anything else that can speak OpenAI-style chat completions can drive them like real tool-call models.
+Turn browser-authenticated AI chat products into an OpenAI-compatible API for agents, tools, and local automation.
 
-This is not another chatbot wrapper. The point is to take the classic consumer web-chat experience, keep the auth session you already have, and bridge it into something agents can actually use.
+`openbridge` reuses the web chat sessions you already have and exposes them through a stable `/v1/chat/completions` interface. That lets tools like `opencode`, `pi`, `OpenClaw`, `Hermes`, and any other OpenAI-style client talk to browser-backed models as if they were normal API providers.
 
-## What It Does
+This is not a chatbot wrapper. It is an adapter layer between polished consumer chat apps and agent-ready infrastructure.
 
-- Reuses authenticated web sessions instead of forcing a separate API key flow.
-- Preserves provider conversation bindings so follow-up turns keep working.
-- Exposes an OpenAI-compatible `/v1/chat/completions` surface.
-- Supports generic transport profiles for `http-sse`, `http-json`, and `http-connect`.
-- Lets you run the same bridge against different upstream chat products without rewriting your agent stack every time.
+## Why OpenBridge
 
-Most of the currently tested targets are the usual big chat LLM products. The actual goal is broader: make this bridge generic enough to sit in front of any OpenAI-compatible API or browser-backed chat transport we can model cleanly.
-
-## Critical Path: Session Extraction
-
-The critical path is session extraction. That is why the extension exists.
-
-Maintainer note: I personally believe users should be extremely careful with any extension that extracts auth sessions. That is powerful, invasive, and easy to misuse. If you do not want to trust an extension with that job, manually extract the session material yourself and install it through the session-package flow, or have an agent vibe-code a dedicated installer on top of this repo's formats and server endpoints.
-
-In other words: the extension is a convenience path, not a trust requirement.
-
-[Session Extraction Extension](https://github.com/uncensoredcode/session_extractor)
+- Reuse authenticated browser sessions instead of managing separate API keys.
+- Expose web-chat models behind an OpenAI-compatible endpoint.
+- Preserve provider conversation bindings so follow-up turns keep working.
+- Normalize multiple upstream transport styles, including `http-sse`, `http-json`, and `http-connect`.
+- Keep your agent stack stable while swapping or testing different chat surfaces underneath it.
 
 ## Demo
 
@@ -57,33 +48,23 @@ That list should be read as "known working surfaces we have evidence for", not a
 
 ## Quick Start
 
-```bash
-bun install
-bun run build
-bun run format:check
-bun run lint
-bun run test
-```
-
-Use the local CLI during development:
+Install the package:
 
 ```bash
-bun run ./bin/openbridge.js --help
+npm install -g @uncensoredcode/openbridge
 ```
 
-Start the server in watch mode:
-
-```bash
-bun run dev:server
-```
-
-Or start the standalone server directly:
+Start the bridge:
 
 ```bash
 openbridge start
 ```
 
-Check health:
+By default, OpenBridge serves locally on `http://127.0.0.1:4318`.
+
+The server starts detached by default, so you can keep using the same terminal.
+
+Check that it is up:
 
 ```bash
 openbridge health
@@ -108,7 +89,32 @@ curl http://127.0.0.1:4318/v1/chat/completions \
   }'
 ```
 
-## Session Package Install Flow
+Or send a prompt from the CLI:
+
+```bash
+openbridge --session demo "Summarize what this project does."
+```
+
+## Security Note
+
+The critical path in this project is session extraction. That is why the extension exists, and it is also the part users should treat with the most caution.
+
+If you do not want to trust an extension with authenticated session material, you do not have to. The extension is a convenience path, not a requirement. You can extract session data yourself and install it through the session-package flow instead.
+
+Session extraction extension:
+
+[uncensoredcode/session_extractor](https://github.com/uncensoredcode/session_extractor)
+
+## How It Works
+
+1. Capture or assemble a provider session package from an authenticated browser session.
+2. Install that session package into OpenBridge for a configured provider.
+3. Call OpenBridge through the CLI or `/v1/chat/completions`.
+4. OpenBridge handles provider-specific request formats, transport quirks, and conversation continuity.
+
+The result is a single local bridge that makes browser-native chat products usable from agent frameworks and OpenAI-compatible SDKs.
+
+## Session Package Flow
 
 Captured session material is installed per provider through:
 
@@ -116,8 +122,53 @@ Captured session material is installed per provider through:
 PUT /v1/providers/:id/session-package
 ```
 
-The server can infer provider transport details from captured browser requests and headers, then store the session package for later reuse.
+OpenBridge can infer provider transport details from captured browser requests and headers, then store that session package for later reuse.
+
+You can also import a session package from the CLI:
+
+```bash
+openbridge providers import-session provider-a --file ./session-package.json
+```
+
+Check whether a provider has session material installed:
+
+```bash
+openbridge providers session-status provider-a
+```
+
+## Tested Targets
+
+Confirmed in the transport and session-package test suite:
+
+- DeepSeek
+- Qwen
+- Z.ai
+- Kimi
+
+Use this responsibly. Reusing browser-authenticated sessions may violate the terms of service of some providers, so you should evaluate that risk yourself before using OpenBridge against any given service.
+
+This list should be read as known working evidence, not a hard product boundary. The project is intended to stay generic.
+
+## Package Surface
+
+- `@uncensoredcode/openbridge`: default package export
+- `@uncensoredcode/openbridge/server`: Fastify server, storage, session vault, and standalone bridge server
+- `@uncensoredcode/openbridge/runtime`: turn compilation, packet handling, and runtime helpers
+- `@uncensoredcode/openbridge/cli`: unified `openbridge` CLI for server control, health checks, provider/session management, and prompt execution
+
+## Common Commands
+
+```bash
+openbridge start
+openbridge status
+openbridge logs --follow
+openbridge providers list
+openbridge models list
+openbridge sessions list
+```
 
 ## Why This Exists
 
-The frontier labs keep shipping powerful models behind polished web apps. Agents want stable tool-calling APIs. `openbridge` is the splice point between those two worlds.
+The strongest AI models increasingly appear first inside polished web apps. Agents, SDKs, and local tools still want a predictable API boundary.
+
+`openbridge` is the splice point between those two worlds: keep the authenticated browser session you already have, but expose it through an interface the rest of your stack can actually use.
