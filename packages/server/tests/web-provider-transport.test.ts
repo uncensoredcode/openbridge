@@ -586,6 +586,119 @@ test("generic http-sse transport falls back to the current DeepSeek bootstrap co
     globalThis.fetch = originalFetch;
   }
 });
+test("generic http-sse transport renders DeepSeek-style boolean keys from exact public model ids", async () => {
+  const calls: Array<{
+    url: string;
+    init: RequestInit;
+  }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    const url = String(input);
+    calls.push({
+      url,
+      init: init ?? {}
+    });
+    if (url === "https://example.test/conversations") {
+      return jsonResponse({
+        data: {
+          id: "conversation-thinking-1"
+        }
+      });
+    }
+    if (url === "https://example.test/messages?conversation_id=conversation-thinking-1") {
+      return {
+        ok: true,
+        status: 200,
+        body: createReadableStream(
+          'data: {"response":{"id":"resp-thinking-1"},"choices":[{"delta":{"content":"<final>OK</final>"}}]}\n'
+        ),
+        headers: new Headers({ "content-type": "text/event-stream" }),
+        async text() {
+          return "";
+        }
+      } as Response;
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  }) as typeof fetch;
+  try {
+    const transport = new WebProviderTransport({
+      providerSessionResolver: {
+        rootDir: "/tmp",
+        async loadProviderSession() {
+          return {
+            providerId: "provider-a",
+            cookie: "session=secret",
+            userAgent: "Mozilla/5.0",
+            updatedAt: new Date(0).toISOString()
+          };
+        }
+      },
+      loadProvider() {
+        return {
+          ...createSseProviderRecord(),
+          config: {
+            transport: {
+              ...createSseProviderRecord().config.transport,
+              request: {
+                ...createSseProviderRecord().config.transport.request,
+                body: {
+                  parent_id: "{{parentId}}",
+                  thinking_enabled: "{{thinkingEnabledOrTrue}}",
+                  message: "{{prompt}}"
+                }
+              }
+            }
+          }
+        };
+      }
+    });
+    await transport.completeChat({
+      lane: "main",
+      providerId: "provider-a",
+      modelId: "thinking",
+      sessionId: "bridge-session",
+      requestId: "request-deepseek-thinking",
+      attempt: 1,
+      continuation: false,
+      toolFollowUp: false,
+      providerSessionReused: false,
+      upstreamBinding: null,
+      messages: [
+        {
+          role: "user",
+          content: "Hello?"
+        }
+      ]
+    });
+    await transport.completeChat({
+      lane: "main",
+      providerId: "provider-a",
+      modelId: "instant",
+      sessionId: "bridge-session",
+      requestId: "request-deepseek-instant",
+      attempt: 1,
+      continuation: true,
+      toolFollowUp: false,
+      providerSessionReused: true,
+      upstreamBinding: {
+        conversationId: "conversation-thinking-1",
+        parentId: "resp-thinking-1"
+      },
+      messages: [
+        {
+          role: "user",
+          content: "Hello again?"
+        }
+      ]
+    });
+    const firstRequest = JSON.parse(String(calls[1]?.init.body));
+    const secondRequest = JSON.parse(String(calls[2]?.init.body));
+    assert.equal(firstRequest.thinking_enabled, true);
+    assert.equal(secondRequest.thinking_enabled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 test("generic http-sse transport accepts nested DeepSeek bootstrap conversation id shapes", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input) => {
@@ -1840,7 +1953,7 @@ test("generic http-connect transport extracts incremental connect block content 
         rootDir: "/tmp",
         async loadProviderSession() {
           return {
-            providerId: "provider-a",
+            providerId: "kimi",
             bearerToken: "secret-bearer",
             userAgent: "Mozilla/5.0",
             updatedAt: new Date(0).toISOString()
@@ -1849,7 +1962,7 @@ test("generic http-connect transport extracts incremental connect block content 
       },
       loadProvider() {
         return {
-          id: "provider-a",
+          id: "kimi",
           kind: "http-connect",
           label: "Provider A",
           enabled: true,
@@ -2288,6 +2401,164 @@ test("generic http-connect transport renders captured boolean request variants f
     assert.equal(firstBody.options.thinking, true);
     assert.equal(secondBody.options.thinking, false);
     assert.equal(thirdBody.options.thinking, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+test("generic http-connect transport renders captured boolean request variants from exact public model ids", async () => {
+  const calls: Array<{
+    url: string;
+    init: RequestInit;
+  }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    calls.push({
+      url: String(input),
+      init: init ?? {}
+    });
+    return {
+      ok: true,
+      status: 200,
+      body: createConnectReadableStream([
+        {
+          flags: 0,
+          payload: {
+            message: {
+              id: "resp-thinking-exact",
+              blocks: [
+                {
+                  text: {
+                    content: "<final>OK</final>"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          flags: 0x02,
+          payload: {}
+        }
+      ]),
+      headers: new Headers({ "content-type": "application/connect+json" }),
+      async text() {
+        return "";
+      }
+    } as Response;
+  }) as typeof fetch;
+  try {
+    const transport = new WebProviderTransport({
+      providerSessionResolver: {
+        rootDir: "/tmp",
+        async loadProviderSession() {
+          return {
+            providerId: "provider-a",
+            bearerToken: "secret-bearer",
+            userAgent: "Mozilla/5.0",
+            updatedAt: new Date(0).toISOString()
+          };
+        }
+      },
+      loadProvider() {
+        return {
+          id: "provider-a",
+          kind: "http-connect",
+          label: "Provider A",
+          enabled: true,
+          config: {
+            transport: {
+              prompt: {
+                mode: "auto_join"
+              },
+              session: {
+                requireCookie: false,
+                requireBearerToken: true,
+                requireUserAgent: true,
+                includeExtraHeaders: true
+              },
+              request: {
+                method: "POST",
+                url: "https://example.test/connect/chat",
+                headers: {
+                  "Content-Type": "application/connect+json",
+                  "connect-protocol-version": "1"
+                },
+                body: {
+                  chat_id: "{{conversationId}}",
+                  message: {
+                    parent_id: "{{parentId}}",
+                    role: "user",
+                    blocks: [
+                      {
+                        text: {
+                          content: "{{prompt}}"
+                        }
+                      }
+                    ]
+                  },
+                  options: {
+                    thinking: "{{thinkingEnabledOrFalse}}"
+                  }
+                }
+              },
+              response: {
+                contentPaths: ["message.blocks.0.text.content"],
+                responseIdPaths: ["message.id"],
+                trimLeadingAssistantBlock: true
+              }
+            }
+          },
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString()
+        };
+      }
+    });
+    await transport.completeChat({
+      lane: "main",
+      providerId: "kimi",
+      modelId: "Kimi2.5 thinking",
+      sessionId: "bridge-session",
+      requestId: "request-connect-thinking-exact",
+      attempt: 1,
+      continuation: true,
+      toolFollowUp: false,
+      providerSessionReused: true,
+      upstreamBinding: {
+        conversationId: "chat-1",
+        parentId: "parent-1"
+      },
+      messages: [
+        {
+          role: "user",
+          content: "plus 2"
+        }
+      ]
+    });
+    await transport.completeChat({
+      lane: "main",
+      providerId: "kimi",
+      modelId: "Kimi2.5 instant",
+      sessionId: "bridge-session",
+      requestId: "request-connect-instant-exact",
+      attempt: 1,
+      continuation: true,
+      toolFollowUp: false,
+      providerSessionReused: true,
+      upstreamBinding: {
+        conversationId: "chat-1",
+        parentId: "parent-1"
+      },
+      messages: [
+        {
+          role: "user",
+          content: "plus 2"
+        }
+      ]
+    });
+    const firstRequest = decodeConnectRequestBody(calls[0]?.init.body);
+    const secondRequest = decodeConnectRequestBody(calls[1]?.init.body);
+    assert.equal(firstRequest.options.thinking, true);
+    assert.equal(secondRequest.options.thinking, false);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1355,7 +1355,13 @@ function templateRequestValue(
   }
   if (typeof value === "boolean") {
     const key = context.parentKey.toLowerCase();
-    if (key === "thinking") {
+    if (
+      key === "thinking" ||
+      key === "thinking_enabled" ||
+      key === "enable_thinking" ||
+      key === "thinkingenabled" ||
+      key === "enablethinking"
+    ) {
       return value ? "{{thinkingEnabledOrTrue}}" : "{{thinkingEnabledOrFalse}}";
     }
     return value;
