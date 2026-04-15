@@ -60,12 +60,6 @@ jobs:
               provider_id: "kimi",
               model_id: "kimi-k2@instant",
               session_secret: "KIMI_SESSION"
-            },
-            {
-              label: "zai",
-              provider_id: "zai",
-              model_id: "glm-4.7",
-              session_secret: "ZAI_SESSION"
             }
           ];
           const filtered = requested.length === 0
