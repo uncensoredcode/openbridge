@@ -1307,6 +1307,11 @@ describe("standalone provider session-package API", () => {
           }
         }
       });
+      expect(provider.body.provider.config.transport.request.body).toMatchObject({
+        thinking_enabled: "{{thinkingEnabledOrTrue}}",
+        search_enabled: true,
+        preempt: false
+      });
       expect(
         provider.body.provider.config.transport.request.headers["x-ds-pow-response"]
       ).toBeUndefined();

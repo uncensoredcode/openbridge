@@ -607,7 +607,7 @@ function resolveTemplateToken(
   context: RenderContext
 ): string | number | boolean | null | symbol {
   const dynamic = ensureDynamicTemplateState(context).dynamic;
-  const modelVariant = parseBridgeModelVariant(context.request.modelId);
+  const modelVariant = parseBridgeModelVariant(context.request.modelId, context.request.providerId);
   switch (key) {
     case "prompt":
       return context.prompt;
@@ -677,7 +677,7 @@ function resolveTemplateToken(
       return "";
   }
 }
-function parseBridgeModelVariant(modelId: string) {
+function parseBridgeModelVariant(modelId: string, providerId = "") {
   const trimmed = modelId.trim();
   if (trimmed.endsWith("@thinking")) {
     return {
@@ -696,6 +696,32 @@ function parseBridgeModelVariant(modelId: string) {
       baseModelId: trimmed.slice(0, -"@no-thinking".length),
       thinkingEnabled: false
     };
+  }
+  if (trimmed === "thinking") {
+    return {
+      baseModelId: trimmed,
+      thinkingEnabled: true
+    };
+  }
+  if (trimmed === "instant" || trimmed === "no-thinking") {
+    return {
+      baseModelId: trimmed,
+      thinkingEnabled: false
+    };
+  }
+  if (/kimi/i.test(providerId)) {
+    if (/^kimi\s*2\.5\s+thinking$/i.test(trimmed)) {
+      return {
+        baseModelId: trimmed,
+        thinkingEnabled: true
+      };
+    }
+    if (/^kimi\s*2\.5\s+instant$/i.test(trimmed)) {
+      return {
+        baseModelId: trimmed,
+        thinkingEnabled: false
+      };
+    }
   }
   return {
     baseModelId: trimmed,
